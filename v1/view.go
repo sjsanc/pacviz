@@ -16,27 +16,6 @@ var COLUMNS = []ColDef{
 	{"Description", Percent, 50},
 }
 
-func (m *Model) View() string {
-	lines := make([]string, m.height)
-
-	m.ColumnWidths = calcColWidths(COLUMNS, m.width)
-
-	rows := m.vp.VisibleRows()
-
-	m.RenderHeader(&lines, COLUMNS)
-	m.RenderRows(&lines, rows)
-	m.RenderStatus(&lines)
-
-	var body strings.Builder
-	for i, l := range lines {
-		body.WriteString(l)
-		if i != len(lines)-1 {
-			body.WriteString("\n")
-		}
-	}
-	return body.String()
-}
-
 func trunc(s string, w int) string {
 	if w < 3 {
 		// Handle startup edge case
@@ -100,7 +79,7 @@ func (m *Model) RenderStatus(lines *[]string) {
 	}
 
 	// Rows: 1-100 of 100
-	text := fmt.Sprintf("Rows: %d-%d of %d", m.vp.offset, m.vp.offset+m.vp.height-1, len(m.vp.rows))
+	text := fmt.Sprintf("Rows: %d-%d of %d", m.vp.offset+1, m.vp.offset+m.vp.height, len(m.vp.rows))
 	s := styles.Footer.Width(m.width).Render(text)
 	*lines = append(*lines, s)
 }
@@ -109,4 +88,25 @@ func (m *Model) RenderEmptySpace(lines *[]string, count int) {
 	for i := 0; i < count; i++ {
 		*lines = append(*lines, "")
 	}
+}
+
+func (m *Model) View2() string {
+	lines := make([]string, m.height)
+
+	m.ColumnWidths = calcColWidths(COLUMNS, m.width)
+
+	rows := m.vp.VisibleRows()
+
+	m.RenderHeader(&lines, COLUMNS)
+	m.RenderRows(&lines, rows)
+	m.RenderStatus(&lines)
+
+	var body strings.Builder
+	for i, l := range lines {
+		body.WriteString(l)
+		if i != len(lines)-1 {
+			body.WriteString("\n")
+		}
+	}
+	return body.String()
 }

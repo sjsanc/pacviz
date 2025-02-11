@@ -95,31 +95,6 @@ func (m *Model) SetDimensions(w, h int) *Model {
 	return m
 }
 
-// func (m *Model) EnterCommandMode() {
-// 	m.prefix = ":"
-// 	m.mode = "cmd"
-// 	m.CloseInfobox()
-// }
-// func (m *Model) EnterLocalSearchMode() {
-// 	m.prefix = "search:"
-// 	m.mode = "search"
-// 	m.CloseInfobox()
-// }
-
-// func (m *Model) OpenInfobox() {
-// 	m.infoboxIsVisible = true
-// 	m.infoboxHeight = m.vp.height / 2
-// 	m.vp.height = m.vp.height - m.infoboxHeight
-// 	if m.vp.selected >= m.vp.height {
-// 		m.vp.offset = m.vp.selected - m.vp.height + 2
-// 	}
-// }
-// func (m *Model) CloseInfobox() {
-// 	m.infoboxIsVisible = false
-// 	m.vp.height = m.height - 2
-// 	m.infoboxHeight = 0
-// }
-
 func (m Model) Init() tea.Cmd {
 	return nil
 }
@@ -129,7 +104,7 @@ func convertPkgsToRows(pkgs []alpm.IPackage) []*Row {
 	for i, pkg := range pkgs {
 		rows = append(rows, &Row{
 			cells: []string{
-				strconv.Itoa(i),
+				strconv.Itoa(i + 1),
 				pkg.Name(),
 				pkg.Version(),
 				strings.Join(pkg.Groups().Slice(), ", "),

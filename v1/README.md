@@ -1,0 +1,1 @@
+An alternative TUI for pacman.
