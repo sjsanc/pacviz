@@ -10,17 +10,18 @@ import (
 // PackagesToRows converts packages to table rows.
 func PackagesToRows(packages []*Package) []*Row {
 	rows := make([]*Row, 0, len(packages))
-	for _, pkg := range packages {
-		rows = append(rows, PackageToRow(pkg))
+	for idx, pkg := range packages {
+		rows = append(rows, PackageToRow(pkg, idx+1))
 	}
 	return rows
 }
 
 // PackageToRow converts a single package to a row.
-func PackageToRow(pkg *Package) *Row {
+func PackageToRow(pkg *Package, index int) *Row {
 	row := NewRow(pkg)
 
 	// Format cells
+	row.Cells[column.ColIndex] = fmt.Sprintf("%d", index)
 	row.Cells[column.ColName] = pkg.Name
 	row.Cells[column.ColVersion] = pkg.Version
 	row.Cells[column.ColSize] = formatSize(pkg.InstalledSize)

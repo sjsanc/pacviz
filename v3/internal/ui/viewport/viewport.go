@@ -37,13 +37,14 @@ func New() *Viewport {
 		Columns:     column.DefaultColumns(),
 		SortColumn:  column.ColName,
 		SortReverse: false,
+		SelectedCol: 1, // Start at first selectable column (skip index column at 0)
 	}
 }
 
 // SetRows sets the rows and updates the visible rows.
 func (v *Viewport) SetRows(rows []*domain.Row) {
 	v.AllRows = rows
-	v.VisibleRows = rows
+	v.sortRows()
 	v.updateVisibleRows()
 }
 

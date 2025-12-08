@@ -4,6 +4,7 @@ package column
 type Type string
 
 const (
+	ColIndex       Type = "index"
 	ColName        Type = "name"
 	ColVersion     Type = "version"
 	ColSize        Type = "size"
@@ -43,6 +44,14 @@ type Column struct {
 func DefaultColumns() []*Column {
 	return []*Column{
 		{
+			Type:       ColIndex,
+			Name:       "#",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 5}, // Fixed 5 char width
+			Sortable:   false,
+			Searchable: false,
+			Visible:    true,
+		},
+		{
 			Type:       ColName,
 			Name:       "Name",
 			Width:      ColumnWidth{Type: WidthFixed, Size: 40}, // 2x the size of other fixed columns
@@ -72,6 +81,14 @@ func DefaultColumns() []*Column {
 			Width:      ColumnWidth{Type: WidthFixed, Size: 12}, // Fits "2025-11-30"
 			Sortable:   true,
 			Searchable: false,
+			Visible:    true,
+		},
+		{
+			Type:       ColGroups,
+			Name:       "Groups",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 25}, // Variable but typically short
+			Sortable:   true,
+			Searchable: true,
 			Visible:    true,
 		},
 		{

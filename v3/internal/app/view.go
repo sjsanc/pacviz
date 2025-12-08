@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/sjsanc/pacviz/v3/internal/command"
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
 	"github.com/sjsanc/pacviz/v3/internal/ui/renderer"
 )
@@ -31,16 +33,59 @@ func (m Model) View() string {
 	// Get visible rows
 	visibleRows := m.Viewport.GetVisibleRows()
 
-	// Render the UI
-	return renderer.Render(
+	// Calculate the selected row index relative to the visible window
+	relativeSelectedRow := m.Viewport.SelectedRow - m.Viewport.Offset
+
+	// Generate status bar based on mode
+	var statusBar string
+	var commandPalette string
+	var paletteRows int
+
+	switch m.Mode {
+	case ModeCommand:
+		// Show command palette and buffer
+		commandPalette, paletteRows = command.RenderCommandPalette(m.GetBufferContent(), width)
+		statusBar = renderer.RenderStatusWithBuffer(m.Buffer, width)
+	case ModeFilter:
+		// Show buffer only for filter mode
+		statusBar = renderer.RenderStatusWithBuffer(m.Buffer, width)
+	case ModeNormal:
+		// Show normal status line
+		filterText := ""
+		if m.Viewport.Filter.Active && len(m.Viewport.Filter.Terms) > 0 {
+			filterText = m.Viewport.Filter.Terms[0]
+		}
+		presetName := m.Presets[m.CurrentPreset].Name
+		statusBar = renderer.RenderStatus(
+			presetName,
+			len(m.Viewport.VisibleRows),
+			m.Viewport.Height,
+			m.Viewport.Offset,
+			filterText,
+			width,
+		)
+	}
+
+	// Render the table with palette overlay if active
+	tableUI := renderer.RenderWithPaletteOverlay(
 		width,
 		m.Height,
 		m.Viewport.Columns,
 		colWidths,
 		visibleRows,
-		m.Viewport.SelectedRow,
+		relativeSelectedRow,
 		m.Viewport.SelectedCol,
 		m.Viewport.SortColumn,
 		m.Viewport.SortReverse,
+		commandPalette,
+		paletteRows,
+		m.Viewport.Offset,
 	)
+
+	// Add status bar at the bottom
+	if statusBar != "" {
+		return lipgloss.JoinVertical(lipgloss.Left, tableUI, statusBar)
+	}
+
+	return tableUI
 }

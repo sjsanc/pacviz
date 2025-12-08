@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -10,7 +11,7 @@ import (
 )
 
 // RenderTable renders the package table rows.
-func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, selectedRow int) string {
+func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, selectedRow int, offset int) string {
 	if len(rows) == 0 {
 		return styles.Row.Render("No packages to display")
 	}
@@ -26,7 +27,13 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 			}
 
 			// Get cell content
-			content := row.Cells[col.Type]
+			var content string
+			if col.Type == column.ColIndex {
+				// Index should reflect absolute position in the full list (1-based)
+				content = fmt.Sprintf("%d", offset+rowIdx+1)
+			} else {
+				content = row.Cells[col.Type]
+			}
 
 			// Account for padding in width calculation
 			contentWidth := colWidths[colIdx] - (CellPadding * 2)
@@ -34,15 +41,23 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 				contentWidth = 1
 			}
 
-			// Truncate or pad to content width
-			if len(content) > contentWidth {
-				if contentWidth > 3 {
-					content = content[:contentWidth-3] + "..."
-				} else {
-					content = content[:contentWidth]
+			// Handle text alignment for index column (right-aligned)
+			if col.Type == column.ColIndex {
+				// Right-align for index column
+				if len(content) < contentWidth {
+					content = strings.Repeat(" ", contentWidth-len(content)) + content
 				}
 			} else {
-				content = content + strings.Repeat(" ", contentWidth-len(content))
+				// Default left-align
+				if len(content) > contentWidth {
+					if contentWidth > 3 {
+						content = content[:contentWidth-3] + "..."
+					} else {
+						content = content[:contentWidth]
+					}
+				} else {
+					content = content + strings.Repeat(" ", contentWidth-len(content))
+				}
 			}
 
 			// Add horizontal padding
@@ -50,12 +65,25 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 
 			// Choose style
 			var style lipgloss.Style
-			if rowIdx == selectedRow {
-				style = styles.RowSelected
-			} else if rowIdx%2 == 0 {
-				style = styles.Row
+			if col.Type == column.ColIndex {
+				// Index column uses dimmed style (dark-ish foreground)
+				style = styles.Index
+				if rowIdx == selectedRow {
+					style = styles.RowSelected.Copy().Foreground(styles.Dimmed)
+				} else if rowIdx%2 == 0 {
+					style = styles.Index.Copy().Background(styles.Background)
+				} else {
+					style = styles.Index.Copy().Background(lipgloss.Color("#16161e"))
+				}
 			} else {
-				style = styles.RowAlt
+				// Regular row styling
+				if rowIdx == selectedRow {
+					style = styles.RowSelected
+				} else if rowIdx%2 == 0 {
+					style = styles.Row
+				} else {
+					style = styles.RowAlt
+				}
 			}
 
 			cells = append(cells, style.Render(content))

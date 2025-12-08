@@ -60,6 +60,12 @@ func (r *AlpmRepository) GetInstalled() ([]*domain.Package, error) {
 		return nil
 	})
 
+	// Compute orphan status (packages with no reverse dependencies)
+	r.computeOrphans(result)
+
+	// Compute foreign status (packages not in sync databases)
+	r.computeForeign(result)
+
 	return result, nil
 }
 
@@ -70,6 +76,13 @@ func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 		installReason = domain.ReasonExplicit
 	}
 
+	// Extract dependency names
+	deps := make([]string, 0)
+	pkg.Depends().ForEach(func(dep *alpm.Depend) error {
+		deps = append(deps, dep.Name)
+		return nil
+	})
+
 	return &domain.Package{
 		Name:          pkg.Name(),
 		Version:       pkg.Version(),
@@ -78,12 +91,56 @@ func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 		URL:           pkg.URL(),
 		Licenses:      pkg.Licenses().Slice(),
 		Groups:        pkg.Groups().Slice(),
+		Dependencies:  deps,
 		Installed:     true,
 		InstallDate:   pkg.InstallDate(),
 		InstallReason: installReason,
 		InstalledSize: pkg.ISize(),
 		Packager:      pkg.Packager(),
 		BuildDate:     pkg.BuildDate(),
+	}
+}
+
+// computeOrphans calculates which packages are orphans (dependencies with no dependents).
+func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
+	// Build a map of package names to packages
+	pkgMap := make(map[string]*domain.Package)
+	for _, pkg := range packages {
+		pkgMap[pkg.Name] = pkg
+	}
+
+	// Build reverse dependency map
+	reverseDeps := make(map[string][]string)
+	for _, pkg := range packages {
+		for _, dep := range pkg.Dependencies {
+			reverseDeps[dep] = append(reverseDeps[dep], pkg.Name)
+		}
+	}
+
+	// Mark orphans: dependency packages with no reverse dependencies
+	for _, pkg := range packages {
+		if pkg.InstallReason == domain.ReasonDependency {
+			pkg.IsOrphan = len(reverseDeps[pkg.Name]) == 0
+		}
+		pkg.Required = reverseDeps[pkg.Name]
+	}
+}
+
+// computeForeign marks packages that are not in any sync database as foreign.
+func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
+	// Build a set of packages in sync databases
+	syncPkgs := make(map[string]bool)
+	r.syncDBs.ForEach(func(db alpm.IDB) error {
+		db.PkgCache().ForEach(func(pkg alpm.IPackage) error {
+			syncPkgs[pkg.Name()] = true
+			return nil
+		})
+		return nil
+	})
+
+	// Mark packages not in sync databases as foreign
+	for _, pkg := range packages {
+		pkg.IsForeign = !syncPkgs[pkg.Name]
 	}
 }
 

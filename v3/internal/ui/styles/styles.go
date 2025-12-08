@@ -44,4 +44,12 @@ var (
 	Footer = lipgloss.NewStyle().
 		Foreground(Accent2).
 		Background(Background)
+
+	StatusBar = lipgloss.NewStyle().
+		Foreground(Foreground).
+		Background(Background).
+		Padding(0, 1)
+
+	Index = lipgloss.NewStyle().
+		Foreground(Dimmed)
 )
