@@ -40,6 +40,7 @@ func (m Model) View() string {
 	var statusBar string
 	var commandPalette string
 	var paletteRows int
+	var tableUI string
 
 	switch m.Mode {
 	case ModeCommand:
@@ -66,21 +67,56 @@ func (m Model) View() string {
 		)
 	}
 
-	// Render the table with palette overlay if active
-	tableUI := renderer.RenderWithPaletteOverlay(
-		width,
-		m.Height,
-		m.Viewport.Columns,
-		colWidths,
-		visibleRows,
-		relativeSelectedRow,
-		m.Viewport.SelectedCol,
-		m.Viewport.SortColumn,
-		m.Viewport.SortReverse,
-		commandPalette,
-		paletteRows,
-		m.Viewport.Offset,
-	)
+	// Render the table with detail panel or palette overlay
+	if m.ShowDetailPanel {
+		// Show detail panel for selected package
+		selectedPackage := m.Viewport.GetSelectedPackage()
+		tableUI = renderer.RenderWithDetailPanel(
+			width,
+			m.Height,
+			m.Viewport.Columns,
+			colWidths,
+			visibleRows,
+			relativeSelectedRow,
+			m.Viewport.SelectedCol,
+			m.Viewport.SortColumn,
+			m.Viewport.SortReverse,
+			selectedPackage,
+			m.Viewport.Offset,
+		)
+	} else if commandPalette != "" {
+		// Show command palette overlay
+		tableUI = renderer.RenderWithPaletteOverlay(
+			width,
+			m.Height,
+			m.Viewport.Columns,
+			colWidths,
+			visibleRows,
+			relativeSelectedRow,
+			m.Viewport.SelectedCol,
+			m.Viewport.SortColumn,
+			m.Viewport.SortReverse,
+			commandPalette,
+			paletteRows,
+			m.Viewport.Offset,
+		)
+	} else {
+		// No overlay, render normally
+		tableUI = renderer.RenderWithPaletteOverlay(
+			width,
+			m.Height,
+			m.Viewport.Columns,
+			colWidths,
+			visibleRows,
+			relativeSelectedRow,
+			m.Viewport.SelectedCol,
+			m.Viewport.SortColumn,
+			m.Viewport.SortReverse,
+			"",
+			0,
+			m.Viewport.Offset,
+		)
+	}
 
 	// Add status bar at the bottom
 	if statusBar != "" {

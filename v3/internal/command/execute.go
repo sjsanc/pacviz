@@ -9,11 +9,12 @@ import (
 
 // ExecuteResult represents the result of executing a command.
 type ExecuteResult struct {
-	Quit       bool   // Whether to quit the application
-	GoToLine   int    // Line number to jump to (-1 = no jump)
-	ScrollTop  bool   // Whether to scroll to top
-	ScrollEnd  bool   // Whether to scroll to end
-	Error      string // Error message if command failed
+	Quit         bool   // Whether to quit the application
+	GoToLine     int    // Line number to jump to (-1 = no jump)
+	ScrollTop    bool   // Whether to scroll to top
+	ScrollEnd    bool   // Whether to scroll to end
+	Error        string // Error message if command failed
+	PresetChange string // Preset to switch to (empty = no change)
 }
 
 // Execute parses and executes a command string.
@@ -49,6 +50,8 @@ func Execute(commandStr string) ExecuteResult {
 		return ExecuteResult{ScrollEnd: true, GoToLine: -1}
 	case "q", "quit":
 		return ExecuteResult{Quit: true, GoToLine: -1}
+	case "p", "preset":
+		return executePreset(args)
 	default:
 		return ExecuteResult{
 			GoToLine: -1,
@@ -78,6 +81,38 @@ func executeGoTo(args []string) ExecuteResult {
 	// Convert to 0-based index (user sees 1-based line numbers)
 	return ExecuteResult{
 		GoToLine: line - 1,
+	}
+}
+
+// executePreset handles the :p <preset> command.
+func executePreset(args []string) ExecuteResult {
+	if len(args) == 0 {
+		return ExecuteResult{
+			GoToLine: -1,
+			Error:    "Usage: :p <preset> (explicit, dependency, orphans, foreign, all)",
+		}
+	}
+
+	preset := args[0]
+	// Validate preset name
+	validPresets := map[string]bool{
+		"explicit":   true,
+		"dependency": true,
+		"orphans":    true,
+		"foreign":    true,
+		"all":        true,
+	}
+
+	if !validPresets[preset] {
+		return ExecuteResult{
+			GoToLine: -1,
+			Error:    "Invalid preset: " + preset + " (valid: explicit, dependency, orphans, foreign, all)",
+		}
+	}
+
+	return ExecuteResult{
+		GoToLine:     -1,
+		PresetChange: preset,
 	}
 }
 

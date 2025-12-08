@@ -36,6 +36,9 @@ type Model struct {
 	// Preset state
 	Presets       []domain.Preset
 	CurrentPreset int // Index into Presets slice
+
+	// Detail panel state
+	ShowDetailPanel bool
 }
 
 // packagesLoadedMsg is sent when packages are loaded.
@@ -134,6 +137,18 @@ func (m *Model) GetBufferContent() string {
 func (m *Model) NextPreset() {
 	m.CurrentPreset = (m.CurrentPreset + 1) % len(m.Presets)
 	m.applyCurrentPreset()
+}
+
+// SetPreset sets a specific preset by name.
+func (m *Model) SetPreset(presetName string) bool {
+	for i, preset := range m.Presets {
+		if string(preset.Type) == presetName {
+			m.CurrentPreset = i
+			m.applyCurrentPreset()
+			return true
+		}
+	}
+	return false
 }
 
 // applyCurrentPreset applies the current preset filter and resets sort/filters.

@@ -25,6 +25,9 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 			} else {
 				header += " ↑"
 			}
+		} else if col.Sortable {
+			// Add invisible placeholder to maintain consistent width
+			header += "  " // Two spaces to match " ↑" or " ↓"
 		}
 
 		// Account for padding in width calculation
@@ -33,22 +36,25 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 			contentWidth = 1
 		}
 
-		// Handle text alignment for index column (right-aligned)
-		if col.Type == column.ColIndex {
-			// Right-align for index column
-			if len(header) < contentWidth {
-				header = strings.Repeat(" ", contentWidth-len(header)) + header
+		// Use lipgloss.Width for proper Unicode width calculation
+		headerWidth := lipgloss.Width(header)
+
+		// Handle text alignment for index and AUR columns (right-aligned)
+		if col.Type == column.ColIndex || col.Type == column.ColAUR {
+			// Right-align for index and AUR columns
+			if headerWidth < contentWidth {
+				header = strings.Repeat(" ", contentWidth-headerWidth) + header
 			}
 		} else {
 			// Default left-align
-			if len(header) > contentWidth {
+			if headerWidth > contentWidth {
 				if contentWidth > 3 {
 					header = header[:contentWidth-3] + "..."
 				} else {
 					header = header[:contentWidth]
 				}
 			} else {
-				header = header + strings.Repeat(" ", contentWidth-len(header))
+				header = header + strings.Repeat(" ", contentWidth-headerWidth)
 			}
 		}
 
@@ -57,8 +63,8 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 
 		// Apply style
 		style := styles.Header
-		if col.Type == column.ColIndex {
-			// Index column header uses dimmed style
+		if col.Type == column.ColIndex || col.Type == column.ColAUR {
+			// Index and AUR column headers use dimmed style
 			style = styles.Header.Copy().Foreground(styles.Dimmed)
 		}
 		if i == selectedCol {

@@ -5,6 +5,7 @@ type Type string
 
 const (
 	ColIndex       Type = "index"
+	ColAUR         Type = "aur"
 	ColName        Type = "name"
 	ColVersion     Type = "version"
 	ColSize        Type = "size"
@@ -47,6 +48,14 @@ func DefaultColumns() []*Column {
 			Type:       ColIndex,
 			Name:       "#",
 			Width:      ColumnWidth{Type: WidthFixed, Size: 5}, // Fixed 5 char width
+			Sortable:   false,
+			Searchable: false,
+			Visible:    true,
+		},
+		{
+			Type:       ColAUR,
+			Name:       "AUR",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 5}, // Fixed 5 char width for "AUR" or empty
 			Sortable:   false,
 			Searchable: false,
 			Visible:    true,

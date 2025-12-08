@@ -31,6 +31,9 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 			if col.Type == column.ColIndex {
 				// Index should reflect absolute position in the full list (1-based)
 				content = fmt.Sprintf("%d", offset+rowIdx+1)
+			} else if col.Type == column.ColAUR {
+				// Display "AUR" for foreign packages
+				content = row.Cells[col.Type]
 			} else {
 				content = row.Cells[col.Type]
 			}
@@ -41,9 +44,9 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 				contentWidth = 1
 			}
 
-			// Handle text alignment for index column (right-aligned)
-			if col.Type == column.ColIndex {
-				// Right-align for index column
+			// Handle text alignment for index and AUR columns (right-aligned)
+			if col.Type == column.ColIndex || col.Type == column.ColAUR {
+				// Right-align for index and AUR columns
 				if len(content) < contentWidth {
 					content = strings.Repeat(" ", contentWidth-len(content)) + content
 				}
@@ -65,8 +68,8 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 
 			// Choose style
 			var style lipgloss.Style
-			if col.Type == column.ColIndex {
-				// Index column uses dimmed style (dark-ish foreground)
+			if col.Type == column.ColIndex || col.Type == column.ColAUR {
+				// Index and AUR columns use dimmed style (dark-ish foreground)
 				style = styles.Index
 				if rowIdx == selectedRow {
 					style = styles.RowSelected.Copy().Foreground(styles.Dimmed)

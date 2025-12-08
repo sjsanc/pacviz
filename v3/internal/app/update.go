@@ -17,6 +17,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyPress(msg)
 	case tea.WindowSizeMsg:
 		return m.handleWindowSize(msg)
+	case tea.MouseMsg:
+		return m.handleMouseEvent(msg)
 	}
 
 	return m, nil
@@ -110,7 +112,9 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	case "tab":
 		m.NextPreset()
 
-	// TODO: Info view (enter, i)
+	// Detail panel toggle
+	case "enter", "i":
+		m.ShowDetailPanel = !m.ShowDetailPanel
 	}
 
 	return m, nil
@@ -185,6 +189,14 @@ func (m Model) handleCommandResult(msg command.CommandResultMsg) (tea.Model, tea
 		return m, tea.Quit
 	}
 
+	// Handle preset change
+	if result.PresetChange != "" {
+		if !m.SetPreset(result.PresetChange) {
+			// This shouldn't happen if executePreset validates correctly
+			m.Error = nil // TODO: Show error
+		}
+	}
+
 	// Handle go to line
 	if result.GoToLine >= 0 {
 		m.Viewport.ScrollToLine(result.GoToLine)
@@ -208,6 +220,35 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.Height = msg.Height
 	// Reserve 1 line for header + 1 line for status bar
 	m.Viewport.Height = msg.Height - 2
+	return m, nil
+}
+
+func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	// Only handle left click
+	if msg.Type != tea.MouseLeft {
+		return m, nil
+	}
+
+	// Only handle clicks in normal mode
+	if m.Mode != ModeNormal {
+		return m, nil
+	}
+
+	// Calculate which row was clicked
+	// Row 0 is the header, so subtract 1 to get table row
+	// Also account for the offset
+	if msg.Y <= 0 {
+		// Clicked on header, ignore
+		return m, nil
+	}
+
+	clickedRow := msg.Y - 1 + m.Viewport.Offset
+
+	// Make sure the clicked row is valid
+	if clickedRow >= 0 && clickedRow < len(m.Viewport.VisibleRows) {
+		m.Viewport.SelectedRow = clickedRow
+	}
+
 	return m, nil
 }
 

@@ -55,3 +55,69 @@ func TestExecute_GoTo(t *testing.T) {
 		})
 	}
 }
+
+func TestExecute_Preset(t *testing.T) {
+	tests := []struct {
+		name           string
+		commandStr     string
+		expectedPreset string
+		expectedError  string
+	}{
+		{
+			name:           "preset with p alias - explicit",
+			commandStr:     "p explicit",
+			expectedPreset: "explicit",
+			expectedError:  "",
+		},
+		{
+			name:           "preset with full name - dependency",
+			commandStr:     "preset dependency",
+			expectedPreset: "dependency",
+			expectedError:  "",
+		},
+		{
+			name:           "preset orphans",
+			commandStr:     "p orphans",
+			expectedPreset: "orphans",
+			expectedError:  "",
+		},
+		{
+			name:           "preset foreign",
+			commandStr:     "p foreign",
+			expectedPreset: "foreign",
+			expectedError:  "",
+		},
+		{
+			name:           "preset all",
+			commandStr:     "p all",
+			expectedPreset: "all",
+			expectedError:  "",
+		},
+		{
+			name:           "preset without args",
+			commandStr:     "p",
+			expectedPreset: "",
+			expectedError:  "Usage: :p <preset> (explicit, dependency, orphans, foreign, all)",
+		},
+		{
+			name:           "preset with invalid name",
+			commandStr:     "p invalid",
+			expectedPreset: "",
+			expectedError:  "Invalid preset: invalid (valid: explicit, dependency, orphans, foreign, all)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Execute(tt.commandStr)
+
+			if result.PresetChange != tt.expectedPreset {
+				t.Errorf("PresetChange = %q, want %q", result.PresetChange, tt.expectedPreset)
+			}
+
+			if result.Error != tt.expectedError {
+				t.Errorf("Error = %q, want %q", result.Error, tt.expectedError)
+			}
+		})
+	}
+}

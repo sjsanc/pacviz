@@ -36,6 +36,16 @@ func NewAlpmRepository() (*AlpmRepository, error) {
 		return nil, fmt.Errorf("failed to get local database: %w", err)
 	}
 
+	// Register sync databases from pacman.conf
+	for _, repo := range pacmanConf.Repos {
+		// Register each repository as a sync database
+		_, err := handle.RegisterSyncDB(repo.Name, 0) // 0 = no signature check for now
+		if err != nil {
+			handle.Release()
+			return nil, fmt.Errorf("failed to register sync database %s: %w", repo.Name, err)
+		}
+	}
+
 	// Get sync databases
 	syncDBs, err := handle.SyncDBs()
 	if err != nil {
