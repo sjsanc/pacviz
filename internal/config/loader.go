@@ -28,8 +28,8 @@ func Load(path string, optional bool) (*Config, error) {
 
 	// Parse TOML file
 	tomlConfig := struct {
-		ThemeName string `toml:"theme"` // NEW: theme name to load
-		Theme     struct {
+		SelectedTheme string `toml:"selected_theme"` // Theme name to load
+		Theme         struct {
 			// Nested overrides (new format)
 			Overrides struct {
 				Accent1       string `toml:"accent1"`
@@ -67,121 +67,97 @@ func Load(path string, optional bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Load base theme by name (or use TokyoNightTheme for backwards compatibility)
-	baseTheme := styles.TokyoNightTheme
-	if tomlConfig.ThemeName != "" {
-		if loaded, err := styles.LoadTheme(tomlConfig.ThemeName); err == nil {
-			baseTheme = loaded
-		}
+	// Load base theme by name (defaults to "default" if not specified)
+	themeName := tomlConfig.SelectedTheme
+	if themeName == "" {
+		themeName = "default"
+	}
+
+	baseTheme, err := styles.LoadTheme(themeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load theme '%s': %w", themeName, err)
 	}
 
 	// Apply overrides from both nested and flat structures (flat takes precedence for backwards compat)
-	hasOverrides := false
 
 	// Check nested overrides first
 	if tomlConfig.Theme.Overrides.Accent1 != "" {
 		baseTheme.Accent1 = tomlConfig.Theme.Overrides.Accent1
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Accent2 != "" {
 		baseTheme.Accent2 = tomlConfig.Theme.Overrides.Accent2
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Accent3 != "" {
 		baseTheme.Accent3 = tomlConfig.Theme.Overrides.Accent3
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Accent4 != "" {
 		baseTheme.Accent4 = tomlConfig.Theme.Overrides.Accent4
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Accent5 != "" {
 		baseTheme.Accent5 = tomlConfig.Theme.Overrides.Accent5
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Background != "" {
 		baseTheme.Background = tomlConfig.Theme.Overrides.Background
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.BackgroundAlt != "" {
 		baseTheme.BackgroundAlt = tomlConfig.Theme.Overrides.BackgroundAlt
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Foreground != "" {
 		baseTheme.Foreground = tomlConfig.Theme.Overrides.Foreground
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Selected != "" {
 		baseTheme.Selected = tomlConfig.Theme.Overrides.Selected
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.Dimmed != "" {
 		baseTheme.Dimmed = tomlConfig.Theme.Overrides.Dimmed
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.RemoteAccent != "" {
 		baseTheme.RemoteAccent = tomlConfig.Theme.Overrides.RemoteAccent
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Overrides.WarningAccent != "" {
 		baseTheme.WarningAccent = tomlConfig.Theme.Overrides.WarningAccent
-		hasOverrides = true
 	}
 
 	// Apply flat overrides (backwards compatibility - these take precedence)
 	if tomlConfig.Theme.Accent1 != "" {
 		baseTheme.Accent1 = tomlConfig.Theme.Accent1
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Accent2 != "" {
 		baseTheme.Accent2 = tomlConfig.Theme.Accent2
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Accent3 != "" {
 		baseTheme.Accent3 = tomlConfig.Theme.Accent3
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Accent4 != "" {
 		baseTheme.Accent4 = tomlConfig.Theme.Accent4
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Accent5 != "" {
 		baseTheme.Accent5 = tomlConfig.Theme.Accent5
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Background != "" {
 		baseTheme.Background = tomlConfig.Theme.Background
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.BackgroundAlt != "" {
 		baseTheme.BackgroundAlt = tomlConfig.Theme.BackgroundAlt
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Foreground != "" {
 		baseTheme.Foreground = tomlConfig.Theme.Foreground
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Selected != "" {
 		baseTheme.Selected = tomlConfig.Theme.Selected
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.Dimmed != "" {
 		baseTheme.Dimmed = tomlConfig.Theme.Dimmed
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.RemoteAccent != "" {
 		baseTheme.RemoteAccent = tomlConfig.Theme.RemoteAccent
-		hasOverrides = true
 	}
 	if tomlConfig.Theme.WarningAccent != "" {
 		baseTheme.WarningAccent = tomlConfig.Theme.WarningAccent
-		hasOverrides = true
 	}
 
-	// Apply theme if name was specified or overrides exist
-	if tomlConfig.ThemeName != "" || hasOverrides {
-		styles.ApplyTheme(baseTheme)
-	}
+	// Always apply the loaded theme (with any overrides)
+	styles.ApplyTheme(baseTheme)
 
 	return config, nil
 }

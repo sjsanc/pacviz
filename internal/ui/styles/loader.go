@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/sjsanc/pacviz/v3/internal/themes"
 )
 
 // LoadTheme attempts to load a theme by name from:
 // 1. User config dir (~/.config/pacviz/themes/)
 // 2. System dir (/usr/share/pacviz/themes/)
-// 3. Built-in registry
+// 3. Embedded themes (bundled in the binary)
 // Returns error if theme not found in any location.
 func LoadTheme(name string) (Theme, error) {
 	// Try user themes
@@ -24,25 +25,33 @@ func LoadTheme(name string) (Theme, error) {
 		return sysTheme, nil
 	}
 
-	// Try built-in registry
-	if theme, ok := GetBuiltinTheme(name); ok {
-		return theme, nil
+	// Try embedded themes (bundled with application)
+	if embeddedTheme, err := loadEmbeddedTheme(name); err == nil {
+		return embeddedTheme, nil
 	}
 
 	return Theme{}, fmt.Errorf("theme not found: %s", name)
 }
 
 // ApplyTheme updates styles.Current with a new theme.
-// Missing fields are merged from DefaultTheme.
+// Missing fields are merged with the default theme loaded from filesystem.
 func ApplyTheme(theme Theme) {
 	// Merge with defaults for any missing fields
 	merged := mergeWithDefaults(theme)
 	Current = NewStyles(merged)
 }
 
-// mergeWithDefaults fills in any missing fields in the theme with DefaultTheme values.
+// mergeWithDefaults fills in any missing fields in the theme with values from the default theme.
+// The default theme is loaded from filesystem on first use.
 func mergeWithDefaults(theme Theme) Theme {
-	base := DefaultTheme
+	// Load default theme from filesystem
+	defaultTheme, err := loadDefaultTheme()
+	if err != nil {
+		// If we can't load default theme, theme must be complete
+		return theme
+	}
+
+	base := defaultTheme
 
 	if theme.Name != "" {
 		base.Name = theme.Name
@@ -87,6 +96,11 @@ func mergeWithDefaults(theme Theme) Theme {
 	return base
 }
 
+// loadDefaultTheme loads the default theme using the same search paths as LoadTheme.
+func loadDefaultTheme() (Theme, error) {
+	return LoadTheme("default")
+}
+
 // loadUserTheme loads a theme from the user's config directory.
 func loadUserTheme(name string) (Theme, error) {
 	path, err := getUserThemePath(name)
@@ -100,6 +114,21 @@ func loadUserTheme(name string) (Theme, error) {
 func loadSystemTheme(name string) (Theme, error) {
 	path := filepath.Join("/usr/share/pacviz/themes", name+".toml")
 	return loadThemeFile(path)
+}
+
+// loadEmbeddedTheme loads a theme from the embedded filesystem.
+func loadEmbeddedTheme(name string) (Theme, error) {
+	data, err := themes.ReadTheme(name)
+	if err != nil {
+		return Theme{}, err
+	}
+
+	var theme Theme
+	if err := toml.Unmarshal(data, &theme); err != nil {
+		return Theme{}, err
+	}
+
+	return theme, nil
 }
 
 // loadThemeFile loads a theme from a TOML file.

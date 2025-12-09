@@ -1,0 +1,15 @@
+# Tokyo Night Theme
+# A dark theme with Tokyo Night colors
+name = "tokyo-night"
+accent1 = "#7aa2f7"      # Blue
+accent2 = "#bb9af7"      # Purple
+accent3 = "#9ece6a"      # Green
+accent4 = "#e0af68"      # Yellow
+accent5 = "#f7768e"      # Red
+background = "#1a1b26"   # Background
+background_alt = "#16161e"  # Darker background
+foreground = "#c0caf5"   # Foreground
+selected = "#283457"     # Selection
+dimmed = "#565f89"       # Dimmed
+remote_accent = "#e0af68"  # Yellow
+warning_accent = "#ff9e64"  # Bright orange

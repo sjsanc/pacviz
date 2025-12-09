@@ -4,7 +4,7 @@
 # Select a theme by name
 # Available built-in themes: default, tokyo-night, gruvbox, monokai, darcula, catppuccin-mocha
 # You can also place custom themes in ~/.config/pacviz/themes/ or /usr/share/pacviz/themes/
-theme = "gruvbox"
+selected_theme = "gruvbox"
 
 # You can override specific colors on top of any theme
 [theme.overrides]
@@ -22,8 +22,8 @@ theme = "gruvbox"
 # remote_accent = "#fab387"
 # warning_accent = "#f38ba8"
 
-# Backwards compatibility: Flat theme configuration (without theme name)
-# If no 'theme =' line is specified, these overrides will be applied to tokyo-night
+# Backwards compatibility: Flat theme configuration (without selected theme name)
+# If no 'selected_theme =' line is specified, the default theme will be used
 # [theme]
 # accent1 = "#7aa2f7"
 # accent2 = "#bb9af7"

@@ -1,0 +1,15 @@
+# Default Theme
+# Simple black/white terminal colors for maximum compatibility
+name = "default"
+accent1 = "#FFFFFF"
+accent2 = "#FFFFFF"
+accent3 = "#FFFFFF"
+accent4 = "#FFFFFF"
+accent5 = "#FFFFFF"
+background = "#000000"
+background_alt = "#000000"
+foreground = "#FFFFFF"
+selected = "#FFFFFF"
+dimmed = "#808080"
+remote_accent = "#FFFFFF"
+warning_accent = "#FFFFFF"

@@ -53,40 +53,6 @@ type Styles struct {
 	WarningStatusBar  lipgloss.Style
 }
 
-// DefaultTheme uses simple black/white terminal colors for maximum compatibility.
-var DefaultTheme = Theme{
-	Name:          "default",
-	Accent1:       "#FFFFFF",
-	Accent2:       "#FFFFFF",
-	Accent3:       "#FFFFFF",
-	Accent4:       "#FFFFFF",
-	Accent5:       "#FFFFFF",
-	Background:    "#000000",
-	BackgroundAlt: "#000000",
-	Foreground:    "#FFFFFF",
-	Selected:      "#FFFFFF",
-	Dimmed:        "#808080",
-	RemoteAccent:  "#FFFFFF",
-	WarningAccent: "#FFFFFF",
-}
-
-// TokyoNightTheme is a dark theme with Tokyo Night colors.
-var TokyoNightTheme = Theme{
-	Name:          "tokyo-night",
-	Accent1:       "#7aa2f7",
-	Accent2:       "#bb9af7",
-	Accent3:       "#9ece6a",
-	Accent4:       "#e0af68",
-	Accent5:       "#f7768e",
-	Background:    "#1a1b26",
-	BackgroundAlt: "#16161e",
-	Foreground:    "#c0caf5",
-	Selected:      "#283457",
-	Dimmed:        "#565f89",
-	RemoteAccent:  "#e0af68",
-	WarningAccent: "#ff9e64", // Bright orange for warnings
-}
-
 // NewStyles creates a Styles instance from a Theme.
 func NewStyles(theme Theme) *Styles {
 	s := &Styles{
@@ -159,7 +125,12 @@ func NewStyles(theme Theme) *Styles {
 	return s
 }
 
-// Default returns the default styles (using DefaultTheme).
+// Default returns the default styles by loading the default theme from filesystem.
+// If the default theme cannot be loaded, the application will panic.
 func Default() *Styles {
-	return NewStyles(DefaultTheme)
+	theme, err := LoadTheme("default")
+	if err != nil {
+		panic("Failed to load default theme: " + err.Error())
+	}
+	return NewStyles(theme)
 }
