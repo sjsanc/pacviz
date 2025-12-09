@@ -2,7 +2,6 @@ package app
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/sjsanc/pacviz/v3/internal/command"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
 )
@@ -22,7 +21,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleInstallComplete(msg)
 	case removeCompleteMsg:
 		return m.handleRemoveComplete(msg)
-	case command.CommandResultMsg:
+	case commandResultMsg:
 		return m.handleCommandResult(msg)
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
@@ -37,7 +36,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.Error = msg.err
+		m.Error = msg.err.Error()
 		return m, nil
 	}
 
@@ -338,10 +337,10 @@ func (m Model) handlePasswordModeInput(key string) (tea.Model, tea.Cmd) {
 
 func (m *Model) executeCommand() tea.Cmd {
 	commandStr := m.GetBufferContent()
-	return command.ExecuteCommandMsg(commandStr)
+	return executeCommandMsg(commandStr)
 }
 
-func (m Model) handleCommandResult(msg command.CommandResultMsg) (tea.Model, tea.Cmd) {
+func (m Model) handleCommandResult(msg commandResultMsg) (tea.Model, tea.Cmd) {
 	result := msg.Result
 
 	if result.Error != "" {
@@ -413,11 +412,22 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	if msg.Type != tea.MouseLeft {
+	if m.Mode != ModeNormal {
 		return m, nil
 	}
 
-	if m.Mode != ModeNormal {
+	// Handle mouse wheel scroll
+	switch msg.Type {
+	case tea.MouseWheelUp:
+		m.Viewport.SelectPrev()
+		return m, nil
+	case tea.MouseWheelDown:
+		m.Viewport.SelectNext()
+		return m, nil
+	}
+
+	// Handle mouse click
+	if msg.Type != tea.MouseLeft {
 		return m, nil
 	}
 

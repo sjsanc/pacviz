@@ -8,19 +8,10 @@ import (
 // Note: Theme configuration has been moved to internal/ui/styles package.
 // Use styles.Current to access the active theme, and styles.NewStyles() to create themes.
 type Config struct {
-	UI          UIConfig
 	Columns     ColumnConfig
 	Performance PerformanceConfig
 	Keybindings KeybindingsConfig
 	Pacman      PacmanConfig
-}
-
-// UIConfig contains UI-related settings.
-type UIConfig struct {
-	Theme         string
-	ShowScrollbar bool
-	MouseSupport  bool
-	VimBindings   bool
 }
 
 // ColumnConfig contains column display settings.
@@ -61,12 +52,6 @@ type PacmanConfig struct {
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		UI: UIConfig{
-			Theme:         "dark",
-			ShowScrollbar: true,
-			MouseSupport:  false,
-			VimBindings:   true,
-		},
 		Columns: ColumnConfig{
 			DefaultVisible: []column.Type{
 				column.ColName,

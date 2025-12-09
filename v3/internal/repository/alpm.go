@@ -359,3 +359,5 @@ func (r *AlpmRepository) Refresh() error {
 
 	return nil
 }
+
+var _ Repository = (*AlpmRepository)(nil)

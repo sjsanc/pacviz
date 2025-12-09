@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sjsanc/pacviz/v3/internal/command"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
 	"github.com/sjsanc/pacviz/v3/internal/repository"
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
@@ -40,7 +41,7 @@ type Model struct {
 	Height   int
 	Viewport *viewport.Viewport
 	Repo     repository.Repository
-	Error    error
+	Error    string
 	Ready    bool
 
 	// Input mode state
@@ -116,26 +117,39 @@ type repositoryRefreshedMsg struct {
 	shouldReload bool
 }
 
+// commandResultMsg is sent when a command needs to affect the model.
+type commandResultMsg struct {
+	Result command.ExecuteResult
+}
+
+// executeCommandMsg creates a tea.Cmd that executes a command.
+func executeCommandMsg(commandStr string) tea.Cmd {
+	return func() tea.Msg {
+		result := command.Execute(commandStr)
+		return commandResultMsg{Result: result}
+	}
+}
+
 // NewModel creates a new application model.
-func NewModel() Model {
+func NewModel() *Model {
 	repo, err := repository.NewAlpmRepository()
 	if err != nil {
 		log.Printf("Failed to initialize repository: %v", err)
-		return Model{
+		return &Model{
 			Viewport:      viewport.New(),
-			Error:         fmt.Errorf("failed to initialize repository: %w", err),
+			Error:         fmt.Sprintf("failed to initialize repository: %v", err),
 			Ready:         false,
 			Presets:       domain.DefaultPresets(),
-			CurrentPreset: 0, // Start with Explicit preset
+			CurrentPreset: 0,
 		}
 	}
 
-	return Model{
+	return &Model{
 		Viewport:      viewport.New(),
 		Repo:          repo,
 		Ready:         false,
 		Presets:       domain.DefaultPresets(),
-		CurrentPreset: 0, // Start with Explicit preset
+		CurrentPreset: 0,
 	}
 }
 

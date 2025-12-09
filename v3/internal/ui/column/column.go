@@ -4,15 +4,33 @@ package column
 type Type string
 
 const (
-	ColIndex       Type = "index"
-	ColRepo        Type = "repo"
-	ColName        Type = "name"
-	ColVersion     Type = "version"
-	ColSize        Type = "size"
-	ColInstallDate Type = "install_date"
-	ColInstalled   Type = "installed"
-	ColGroups      Type = "groups"
-	ColDescription Type = "description"
+	ColIndex           Type = "index"
+	ColRepo            Type = "repo"
+	ColName            Type = "name"
+	ColVersion         Type = "version"
+	ColSize            Type = "size"
+	ColInstallDate     Type = "install_date"
+	ColInstalled       Type = "installed"
+	ColDeps            Type = "deps"
+	ColGroups          Type = "groups"
+	ColDescription     Type = "description"
+	ColURL             Type = "url"
+	ColLicenses        Type = "licenses"
+	ColArchitecture    Type = "architecture"
+	ColPackager        Type = "packager"
+	ColBuildDate       Type = "build_date"
+	ColDependencies    Type = "dependencies"
+	ColOptDepends      Type = "opt_depends"
+	ColConflicts       Type = "conflicts"
+	ColProvides        Type = "provides"
+	ColReplaces        Type = "replaces"
+	ColInstallReason   Type = "install_reason"
+	ColRequired        Type = "required"
+	ColIsOrphan        Type = "is_orphan"
+	ColIsForeign       Type = "is_foreign"
+	ColHasUpdate       Type = "has_update"
+	ColNewVersion      Type = "new_version"
+	ColDependencyCount Type = "dependency_count"
 )
 
 // WidthType specifies how column width is calculated.
@@ -60,6 +78,14 @@ func DefaultColumns() []*Column {
 			Sortable:   true,
 			Searchable: false,
 			Visible:    false, // Hidden by default, shown only in remote mode
+		},
+		{
+			Type:       ColDeps,
+			Name:       "Deps",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 5},
+			Sortable:   true,
+			Searchable: false,
+			Visible:    true,
 		},
 		{
 			Type:       ColRepo,

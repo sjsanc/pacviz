@@ -9,11 +9,42 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/styles"
 )
 
-// RenderDetailPanel renders the package detail panel.
-// For small screens (width < 120), it's rendered above the status bar as an overlay.
-// For large screens (width >= 120), it's rendered on the right side.
+// detailField defines a field to display in the detail panel.
+type detailField struct {
+	label string
+	colType column.Type
+}
+
+var detailPanelFields = []detailField{
+	{label: "Name", colType: column.ColName},
+	{label: "Version", colType: column.ColVersion},
+	{label: "Repository", colType: column.ColRepo},
+	{label: "Architecture", colType: column.ColArchitecture},
+	{label: "Installed", colType: column.ColInstalled},
+	{label: "Install Date", colType: column.ColInstallDate},
+	{label: "Install Reason", colType: column.ColInstallReason},
+	{label: "Is Orphan", colType: column.ColIsOrphan},
+	{label: "Is Foreign", colType: column.ColIsForeign},
+	{label: "Has Update", colType: column.ColHasUpdate},
+	{label: "New Version", colType: column.ColNewVersion},
+	{label: "Description", colType: column.ColDescription},
+	{label: "URL", colType: column.ColURL},
+	{label: "Packager", colType: column.ColPackager},
+	{label: "Build Date", colType: column.ColBuildDate},
+	{label: "Licenses", colType: column.ColLicenses},
+	{label: "Size", colType: column.ColSize},
+	{label: "Groups", colType: column.ColGroups},
+	{label: "Dependencies", colType: column.ColDependencies},
+	{label: "Optional Dependencies", colType: column.ColOptDepends},
+	{label: "Required By", colType: column.ColRequired},
+	{label: "Provides", colType: column.ColProvides},
+	{label: "Conflicts", colType: column.ColConflicts},
+	{label: "Replaces", colType: column.ColReplaces},
+}
+
+// RenderDetailPanel renders the package detail panel as an overlay above the status bar.
 // If isRemote is true, show install commands at the bottom using remote colors.
-func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths []int, width int, isSmallScreen bool, isRemote bool) string {
+func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths []int, width int, _ bool, isRemote bool) string {
 	if pkg == nil {
 		return ""
 	}
@@ -25,87 +56,83 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 	// Create a temporary row to get formatted cell values
 	row := domain.PackageToRow(pkg, 0)
 
-	// Build the detail lines
-	var lines []string
-	for _, col := range columns {
-		// Skip the index column
-		if col.Type == column.ColIndex {
+	// Collect all fields to display
+	var fields []struct {
+		label string
+		value string
+	}
+
+	for _, field := range detailPanelFields {
+		value := row.Cells[field.colType]
+
+		// Skip empty values for non-essential fields
+		if value == "" && field.colType != column.ColHasUpdate &&
+			field.colType != column.ColIsOrphan && field.colType != column.ColIsForeign {
 			continue
 		}
 
-		label := col.Name
-		value := row.Cells[col.Type]
-
-		// Format: "Label: value"
-		line := labelStyle.Render(label+":") + " " + valueStyle.Render(value)
-		lines = append(lines, line)
+		fields = append(fields, struct {
+			label string
+			value string
+		}{label: field.label, value: value})
 	}
+
+	// Split fields into two columns
+	mid := (len(fields) + 1) / 2
+	leftFields := fields[:mid]
+	rightFields := fields[mid:]
+
+	// Calculate column width (half of available width, minus padding and gap)
+	colWidth := (width - 8) / 2
+
+	// Build left and right column content
+	var leftContent, rightContent strings.Builder
+
+	for _, f := range leftFields {
+		line := labelStyle.Render(f.label+":") + " " + valueStyle.Render(f.value)
+		if leftContent.Len() > 0 {
+			leftContent.WriteString("\n")
+		}
+		leftContent.WriteString(line)
+	}
+
+	for _, f := range rightFields {
+		line := labelStyle.Render(f.label+":") + " " + valueStyle.Render(f.value)
+		if rightContent.Len() > 0 {
+			rightContent.WriteString("\n")
+		}
+		rightContent.WriteString(line)
+	}
+
+	// Style columns with max width to prevent overflow
+	leftStyle := lipgloss.NewStyle().
+		Width(colWidth).
+		MaxWidth(colWidth)
+	rightStyle := lipgloss.NewStyle().
+		Width(colWidth).
+		MaxWidth(colWidth)
+
+	leftCol := leftStyle.Render(leftContent.String())
+	rightCol := rightStyle.Render(rightContent.String())
+
+	// Join columns horizontally
+	content := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 
 	// Add install commands at the bottom if in remote mode
 	if isRemote {
-		lines = append(lines, "")
-		lines = append(lines, renderInstallCommands(pkg.Name))
+		content = content + "\n\n" + renderInstallCommands(pkg.Name)
 	}
 
-	content := strings.Join(lines, "\n")
+	// Render as overlay above status bar
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(styles.Current.Accent1).
+		Padding(0, 1).
+		Width(width - 4)
 
-	if isSmallScreen {
-		// Small screen: render as overlay above status bar
-		// Add border and padding
-		panelStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(styles.Current.Accent1).
-			Padding(0, 1).
-			Width(width - 4)
-
-		return panelStyle.Render(content)
-	} else {
-		// Large screen: render as side panel on the right
-		panelWidth := CalculateDetailPanelWidth(width)
-
-		panelStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(styles.Current.Accent1).
-			Padding(0, 1).
-			Width(panelWidth - 4)
-
-		return panelStyle.Render(content)
-	}
+	return panelStyle.Render(content)
 }
 
-// IsSmallScreen determines if the screen is small based on width.
-// Below this threshold, the detail panel renders as an overlay above the status bar.
-// At or above this threshold, it renders side-by-side with the table.
-func IsSmallScreen(width int) bool {
-	// Minimum width for side-by-side rendering:
-	// - Table needs at least 80 chars to be readable
-	// - Detail panel needs at least 50 chars
-	// - 2 chars for spacing
-	// Total: 132 chars minimum
-	return width < 140
-}
-
-// CalculateDetailPanelWidth calculates the width of the detail panel for large screens.
-// Returns the total width of the panel including borders.
-func CalculateDetailPanelWidth(width int) int {
-	const maxPanelWidth = 60
-	const minTableWidth = 80
-	const spacing = 2
-
-	// Calculate panel width ensuring table has minimum width
-	panelWidth := maxPanelWidth
-	if width-spacing < minTableWidth+panelWidth {
-		// Not enough space for max panel width, reduce it
-		panelWidth = width - minTableWidth - spacing
-	}
-
-	// Ensure panel has minimum width of 45 chars
-	if panelWidth < 45 {
-		panelWidth = 45
-	}
-
-	return panelWidth
-}
 
 // renderInstallCommands renders the install command options using remote colors.
 func renderInstallCommands(pkgName string) string {

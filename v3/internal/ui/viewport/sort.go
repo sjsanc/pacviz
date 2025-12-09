@@ -52,6 +52,8 @@ func (v *Viewport) compareRows(a, b *domain.Row) bool {
 		return a.Package.InstalledSize < b.Package.InstalledSize
 	case column.ColInstallDate:
 		return a.Package.InstallDate.Before(b.Package.InstallDate)
+	case column.ColDeps:
+		return a.Package.DependencyCount < b.Package.DependencyCount
 	case column.ColGroups:
 		aGroups := strings.Join(a.Package.Groups, ", ")
 		bGroups := strings.Join(b.Package.Groups, ", ")

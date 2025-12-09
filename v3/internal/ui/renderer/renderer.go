@@ -106,7 +106,8 @@ func RenderWithPaletteOverlayAndMode(
 	return style.Render(content)
 }
 
-// RenderWithDetailPanel renders the UI with the detail panel either as overlay or side panel.
+// RenderWithDetailPanel renders the UI with the detail panel inserted between the table and status bar.
+// The detail panel shortens the table height by its own height, but the status bar remains at the bottom.
 func RenderWithDetailPanel(
 	width, height int,
 	columns []*column.Column,
@@ -119,75 +120,37 @@ func RenderWithDetailPanel(
 	offset int,
 	remoteMode bool,
 ) string {
-	isSmallScreen := IsSmallScreen(width)
-	detailPanel := RenderDetailPanel(selectedPackage, columns, colWidths, width, isSmallScreen, remoteMode)
+	// Render the detail panel
+	detailPanel := RenderDetailPanel(selectedPackage, columns, colWidths, width, true, remoteMode)
 
-	if isSmallScreen {
-		detailLines := strings.Count(detailPanel, "\n") + 1
-		header := RenderHeader(columns, colWidths, selectedCol, sortCol, sortReverse)
-		table := RenderTableWithMode(rows, columns, colWidths, selectedRow, offset, remoteMode)
+	detailLines := strings.Count(detailPanel, "\n") + 1
+	header := RenderHeader(columns, colWidths, selectedCol, sortCol, sortReverse)
 
-		headerLines := strings.Count(header, "\n") + 1
-		statusBarLines := 1
-		availableTableLines := height - headerLines - statusBarLines - detailLines
+	headerLines := strings.Count(header, "\n") + 1
+	statusBarLines := 1
+	// Available table lines = total height - header - detail panel - status bar
+	availableTableLines := height - headerLines - statusBarLines - detailLines
 
-		tableLines := strings.Split(table, "\n")
+	// Render table with available height
+	table := RenderTableWithMode(rows, columns, colWidths, selectedRow, offset, remoteMode)
+	tableLines := strings.Split(table, "\n")
 
-		rowsInCollisionZone := 0
-		if len(tableLines) > availableTableLines {
-			rowsInCollisionZone = len(tableLines) - availableTableLines
-			if rowsInCollisionZone > detailLines {
-				rowsInCollisionZone = detailLines
-			}
-		}
-
-		if rowsInCollisionZone > 0 {
-			tableLines = tableLines[:len(tableLines)-rowsInCollisionZone]
-		}
-
-		table = strings.Join(tableLines, "\n")
-
-		if len(tableLines) < availableTableLines {
-			fillerLines := availableTableLines - len(tableLines)
-			filler := strings.Repeat("\n", fillerLines)
-			table = table + filler
-		}
-
-		table = lipgloss.JoinVertical(lipgloss.Left, table, detailPanel)
-		content := lipgloss.JoinVertical(lipgloss.Left, header, table)
-
-		contentLines := strings.Count(content, "\n") + 1
-		targetLines := height - statusBarLines
-		if contentLines < targetLines {
-			additionalFiller := strings.Repeat("\n", targetLines-contentLines)
-			content = content + additionalFiller
-		}
-
-		style := lipgloss.NewStyle().Width(width)
-		return style.Render(content)
-	} else {
-		panelWidth := CalculateDetailPanelWidth(width)
-
-		const spacing = 2
-		tableWidth := width - panelWidth - spacing
-
-		tableColWidths := column.CalculateWidths(columns, tableWidth)
-
-		header := RenderHeader(columns, tableColWidths, selectedCol, sortCol, sortReverse)
-		table := RenderTableWithMode(rows, columns, tableColWidths, selectedRow, offset, remoteMode)
-
-		tableContent := lipgloss.JoinVertical(lipgloss.Left, header, table)
-
-		tableContentLines := strings.Count(tableContent, "\n") + 1
-		targetLines := height - 1
-		if tableContentLines < targetLines {
-			additionalFiller := strings.Repeat("\n", targetLines-tableContentLines)
-			tableContent = tableContent + additionalFiller
-		}
-
-		content := lipgloss.JoinHorizontal(lipgloss.Top, tableContent, "  ", detailPanel)
-
-		style := lipgloss.NewStyle().Width(width)
-		return style.Render(content)
+	// Clip table rows to fit available space
+	if len(tableLines) > availableTableLines {
+		tableLines = tableLines[:availableTableLines]
 	}
+
+	// Pad table to fill available space
+	if len(tableLines) < availableTableLines {
+		fillerLines := availableTableLines - len(tableLines)
+		filler := strings.Repeat("\n", fillerLines)
+		tableLines = append(tableLines, strings.Split(filler, "\n")...)
+	}
+
+	// Build the layout: header -> table -> detail panel (will be followed by status bar in view.go)
+	table = strings.Join(tableLines, "\n")
+	content := lipgloss.JoinVertical(lipgloss.Left, header, table, detailPanel)
+
+	style := lipgloss.NewStyle().Width(width)
+	return style.Render(content)
 }

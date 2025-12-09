@@ -3,8 +3,6 @@ package command
 import (
 	"strconv"
 	"strings"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // ExecuteResult represents the result of executing a command.
@@ -140,18 +138,5 @@ func executeSearch(args []string) ExecuteResult {
 	return ExecuteResult{
 		GoToLine:     -1,
 		RemoteSearch: query,
-	}
-}
-
-// CommandResultMsg is sent when a command needs to affect the model.
-type CommandResultMsg struct {
-	Result ExecuteResult
-}
-
-// ExecuteCommandMsg creates a tea.Cmd that executes a command.
-func ExecuteCommandMsg(commandStr string) tea.Cmd {
-	return func() tea.Msg {
-		result := Execute(commandStr)
-		return CommandResultMsg{Result: result}
 	}
 }

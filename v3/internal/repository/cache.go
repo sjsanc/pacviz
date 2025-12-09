@@ -84,3 +84,5 @@ func (c *CachedRepository) Refresh() error {
 	c.installedCache = nil
 	return c.repo.Refresh()
 }
+
+var _ Repository = (*CachedRepository)(nil)

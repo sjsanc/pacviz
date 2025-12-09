@@ -12,8 +12,8 @@ import (
 // View renders the application (Bubble Tea interface).
 func (m Model) View() string {
 	// Show error if initialization failed
-	if m.Error != nil {
-		return fmt.Sprintf("Error: %v\nPress Ctrl+C to quit", m.Error)
+	if m.Error != "" {
+		return fmt.Sprintf("Error: %s\nPress Ctrl+C to quit", m.Error)
 	}
 
 	// Show loading message if not ready

@@ -84,3 +84,5 @@ func (m *MockRepository) Remove(names []string, cascade bool, password string) (
 func (m *MockRepository) Refresh() error {
 	return nil
 }
+
+var _ Repository = (*MockRepository)(nil)
