@@ -1,9 +1,12 @@
 package app
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
+	"github.com/sjsanc/pacviz/v3/internal/ui/styles"
 )
 
 // Update handles incoming messages and updates the model (Bubble Tea interface).
@@ -396,6 +399,16 @@ func (m Model) handleCommandResult(msg commandResultMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.RemoteError = "No package selected"
 		}
+	}
+
+	if result.ThemeName != "" {
+		theme, err := styles.LoadTheme(result.ThemeName)
+		if err != nil {
+			m.RemoteError = fmt.Sprintf("Error loading theme: %v", err)
+			return m, nil
+		}
+		styles.ApplyTheme(theme)
+		m.RemoteError = fmt.Sprintf("Theme changed to: %s", result.ThemeName)
 	}
 
 	return m, nil

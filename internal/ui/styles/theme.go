@@ -53,9 +53,26 @@ type Styles struct {
 	WarningStatusBar  lipgloss.Style
 }
 
-// DarkTheme is the default dark theme.
-var DarkTheme = Theme{
-	Name:          "dark",
+// DefaultTheme uses simple black/white terminal colors for maximum compatibility.
+var DefaultTheme = Theme{
+	Name:          "default",
+	Accent1:       "#FFFFFF",
+	Accent2:       "#FFFFFF",
+	Accent3:       "#FFFFFF",
+	Accent4:       "#FFFFFF",
+	Accent5:       "#FFFFFF",
+	Background:    "#000000",
+	BackgroundAlt: "#000000",
+	Foreground:    "#FFFFFF",
+	Selected:      "#FFFFFF",
+	Dimmed:        "#808080",
+	RemoteAccent:  "#FFFFFF",
+	WarningAccent: "#FFFFFF",
+}
+
+// TokyoNightTheme is a dark theme with Tokyo Night colors.
+var TokyoNightTheme = Theme{
+	Name:          "tokyo-night",
 	Accent1:       "#7aa2f7",
 	Accent2:       "#bb9af7",
 	Accent3:       "#9ece6a",
@@ -142,7 +159,7 @@ func NewStyles(theme Theme) *Styles {
 	return s
 }
 
-// Default returns the default styles (using DarkTheme).
+// Default returns the default styles (using DefaultTheme).
 func Default() *Styles {
-	return NewStyles(DarkTheme)
+	return NewStyles(DefaultTheme)
 }

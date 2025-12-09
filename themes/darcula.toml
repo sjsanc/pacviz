@@ -1,0 +1,14 @@
+# Darcula Theme (IntelliJ IDEA)
+name = "darcula"
+accent1 = "#6897bb"      # Cyan/Blue
+accent2 = "#9876aa"      # Purple
+accent3 = "#6a8759"      # Green
+accent4 = "#ffc66d"      # Yellow
+accent5 = "#ff6b68"      # Red
+background = "#2b2b2b"   # Background
+background_alt = "#323232"  # Lighter background
+foreground = "#a9b7c6"   # Foreground
+selected = "#214283"     # Selection
+dimmed = "#808080"       # Comment
+remote_accent = "#cc7832"  # Orange
+warning_accent = "#ff6b68"  # Red

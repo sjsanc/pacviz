@@ -1,0 +1,14 @@
+# Monokai Theme
+name = "monokai"
+accent1 = "#66d9ef"      # Blue
+accent2 = "#ae81ff"      # Purple
+accent3 = "#a6e22e"      # Green
+accent4 = "#e6db74"      # Yellow
+accent5 = "#f92672"      # Red
+background = "#272822"   # Background
+background_alt = "#1e1f1c"  # Darker background
+foreground = "#f8f8f2"   # Foreground
+selected = "#49483e"     # Selection
+dimmed = "#75715e"       # Comment
+remote_accent = "#fd971f"  # Orange
+warning_accent = "#f92672"  # Red

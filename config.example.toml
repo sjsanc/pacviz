@@ -1,0 +1,30 @@
+# Example pacviz configuration file
+# Copy this file to ~/.config/pacviz/config.toml to use
+
+# Select a theme by name
+# Available built-in themes: default, tokyo-night, gruvbox, monokai, darcula, catppuccin-mocha
+# You can also place custom themes in ~/.config/pacviz/themes/ or /usr/share/pacviz/themes/
+theme = "catppuccin-mocha"
+
+# You can override specific colors on top of any theme
+[theme.overrides]
+# Uncomment and modify any colors you want to customize:
+# accent1 = "#89b4fa"
+# accent2 = "#cba6f7"
+# accent3 = "#a6e3a1"
+# accent4 = "#f9e2af"
+# accent5 = "#f38ba8"
+# background = "#1e1e2e"
+# background_alt = "#181825"
+# foreground = "#cdd6f4"
+# selected = "#45475a"
+# dimmed = "#6c7086"
+# remote_accent = "#fab387"
+# warning_accent = "#f38ba8"
+
+# Backwards compatibility: Flat theme configuration (without theme name)
+# If no 'theme =' line is specified, these overrides will be applied to tokyo-night
+# [theme]
+# accent1 = "#7aa2f7"
+# accent2 = "#bb9af7"
+# ...

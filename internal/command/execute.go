@@ -16,6 +16,7 @@ type ExecuteResult struct {
 	RemoteSearch   string // Remote search query (empty = no search)
 	InstallPackage bool   // Whether to install the selected package
 	RemovePackage  bool   // Whether to remove the selected package
+	ThemeName      string // Theme to apply (empty = no change)
 }
 
 // Execute parses and executes a command string.
@@ -59,6 +60,8 @@ func Execute(commandStr string) ExecuteResult {
 		return ExecuteResult{InstallPackage: true, GoToLine: -1}
 	case "r", "remove":
 		return ExecuteResult{RemovePackage: true, GoToLine: -1}
+	case "theme", "th":
+		return executeTheme(args)
 	default:
 		return ExecuteResult{
 			GoToLine: -1,
@@ -138,5 +141,22 @@ func executeSearch(args []string) ExecuteResult {
 	return ExecuteResult{
 		GoToLine:     -1,
 		RemoteSearch: query,
+	}
+}
+
+// executeTheme handles the :theme <name> command.
+func executeTheme(args []string) ExecuteResult {
+	if len(args) == 0 {
+		return ExecuteResult{
+			GoToLine: -1,
+			Error:    "Usage: :theme <name>",
+		}
+	}
+
+	themeName := args[0]
+
+	return ExecuteResult{
+		GoToLine:  -1,
+		ThemeName: themeName,
 	}
 }

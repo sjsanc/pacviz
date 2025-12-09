@@ -1,0 +1,14 @@
+# Catppuccin Mocha Theme
+name = "catppuccin-mocha"
+accent1 = "#89b4fa"      # Blue
+accent2 = "#cba6f7"      # Mauve
+accent3 = "#a6e3a1"      # Green
+accent4 = "#f9e2af"      # Yellow
+accent5 = "#f38ba8"      # Red
+background = "#1e1e2e"   # Base
+background_alt = "#181825"  # Mantle
+foreground = "#cdd6f4"   # Text
+selected = "#45475a"     # Surface1
+dimmed = "#6c7086"       # Overlay0
+remote_accent = "#fab387"  # Peach
+warning_accent = "#f38ba8"  # Red
