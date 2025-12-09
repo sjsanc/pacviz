@@ -12,6 +12,11 @@ import (
 
 // RenderTable renders the package table rows.
 func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, selectedRow int, offset int) string {
+	return RenderTableWithMode(rows, columns, colWidths, selectedRow, offset, false)
+}
+
+// RenderTableWithMode renders the package table rows with optional remote mode styling.
+func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths []int, selectedRow int, offset int, remoteMode bool) string {
 	if len(rows) == 0 {
 		return styles.Row.Render("No packages to display")
 	}
@@ -69,40 +74,50 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 				// Index column uses dimmed style (dark-ish foreground)
 				style = styles.Index
 				if rowIdx == selectedRow {
-					style = styles.RowSelected.Copy().Foreground(styles.Dimmed)
+					if remoteMode {
+						style = styles.RemoteRowSelected.Foreground(styles.Background)
+					} else {
+						style = styles.RowSelected.Foreground(styles.Dimmed)
+					}
 				} else if rowIdx%2 == 0 {
-					style = styles.Index.Copy().Background(styles.Background)
+					style = styles.Index.Background(styles.Background)
 				} else {
-					style = styles.Index.Copy().Background(lipgloss.Color("#16161e"))
+					style = styles.Index.Background(lipgloss.Color("#16161e"))
 				}
 			} else if col.Type == column.ColRepo {
 				// Repo column: bright color for foreign packages, dimmed for official repos
 				isForeign := row.Package != nil && row.Package.IsForeign
 				if rowIdx == selectedRow {
-					if isForeign {
-						style = styles.RowSelected.Copy().Foreground(styles.Accent2)
+					if remoteMode {
+						style = styles.RemoteRowSelected
+					} else if isForeign {
+						style = styles.RowSelected.Foreground(styles.Accent2)
 					} else {
-						style = styles.RowSelected.Copy().Foreground(styles.Dimmed)
+						style = styles.RowSelected.Foreground(styles.Dimmed)
 					}
 				} else {
 					if isForeign {
 						// Bright purple/magenta for foreign packages
-						style = styles.Index.Copy().Foreground(styles.Accent2)
+						style = styles.Index.Foreground(styles.Accent2)
 					} else {
 						// Dimmed for official repos
 						style = styles.Index
 					}
 					// Apply background for alternating rows
 					if rowIdx%2 == 0 {
-						style = style.Copy().Background(styles.Background)
+						style = style.Background(styles.Background)
 					} else {
-						style = style.Copy().Background(lipgloss.Color("#16161e"))
+						style = style.Background(lipgloss.Color("#16161e"))
 					}
 				}
 			} else {
 				// Regular row styling
 				if rowIdx == selectedRow {
-					style = styles.RowSelected
+					if remoteMode {
+						style = styles.RemoteRowSelected
+					} else {
+						style = styles.RowSelected
+					}
 				} else if rowIdx%2 == 0 {
 					style = styles.Row
 				} else {

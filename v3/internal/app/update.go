@@ -11,6 +11,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case packagesLoadedMsg:
 		return m.handlePackagesLoaded(msg)
+	case remoteSearchResultMsg:
+		return m.handleRemoteSearchResult(msg)
+	case spinnerTickMsg:
+		return m.handleSpinnerTick()
 	case command.CommandResultMsg:
 		return m.handleCommandResult(msg)
 	case tea.KeyMsg:
@@ -41,6 +45,40 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
+func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, tea.Cmd) {
+	m.RemoteLoading = false
+
+	if msg.err != nil {
+		m.RemoteError = msg.err.Error()
+		return m, nil
+	}
+
+	if len(msg.packages) == 0 {
+		m.RemoteError = "No packages found for: " + msg.query
+		return m, nil
+	}
+
+	// Clear any previous error
+	m.RemoteError = ""
+
+	// Convert packages to rows and display
+	rows := domain.PackagesToRows(msg.packages)
+	m.Viewport.SetRows(rows)
+	m.Viewport.ScrollToTop()
+
+	return m, nil
+}
+
+func (m Model) handleSpinnerTick() (tea.Model, tea.Cmd) {
+	// Only continue spinning if we're still loading
+	if !m.RemoteLoading {
+		return m, nil
+	}
+
+	m.SpinnerFrame++
+	return m, tickSpinner()
+}
+
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
@@ -62,8 +100,12 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 
-	// Clear filter on escape if filter is active
+	// Handle escape: exit remote mode, or clear filter
 	case "esc":
+		if m.ViewMode == ViewRemote {
+			m.ExitRemoteMode()
+			return m, nil
+		}
 		if m.Viewport.Filter.Active {
 			m.Viewport.ClearFilter()
 		}
@@ -179,8 +221,7 @@ func (m Model) handleCommandResult(msg command.CommandResultMsg) (tea.Model, tea
 
 	// Handle errors
 	if result.Error != "" {
-		m.Error = nil // Clear any previous error for now (we could show it in status)
-		// TODO: Show error in status bar instead of setting m.Error
+		m.RemoteError = result.Error
 		return m, nil
 	}
 
@@ -189,11 +230,15 @@ func (m Model) handleCommandResult(msg command.CommandResultMsg) (tea.Model, tea
 		return m, tea.Quit
 	}
 
+	// Handle remote search
+	if result.RemoteSearch != "" {
+		return m, m.EnterRemoteMode(result.RemoteSearch)
+	}
+
 	// Handle preset change
 	if result.PresetChange != "" {
 		if !m.SetPreset(result.PresetChange) {
-			// This shouldn't happen if executePreset validates correctly
-			m.Error = nil // TODO: Show error
+			m.RemoteError = "Invalid preset"
 		}
 	}
 

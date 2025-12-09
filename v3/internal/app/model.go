@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
@@ -11,6 +12,9 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/viewport"
 )
 
+// SpinnerFrames contains the ASCII spinner animation frames.
+var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
 // InputMode represents the current input mode of the application.
 type InputMode int
 
@@ -18,6 +22,14 @@ const (
 	ModeNormal InputMode = iota
 	ModeCommand
 	ModeFilter
+)
+
+// ViewMode represents whether viewing local or remote packages.
+type ViewMode int
+
+const (
+	ViewLocal ViewMode = iota
+	ViewRemote
 )
 
 // Model is the main Bubble Tea model for the application.
@@ -39,6 +51,14 @@ type Model struct {
 
 	// Detail panel state
 	ShowDetailPanel bool
+
+	// Remote mode state
+	ViewMode      ViewMode
+	RemoteQuery   string        // The search query
+	RemoteLoading bool          // Whether a remote query is in progress
+	RemoteError   string        // Error message from remote query
+	LocalRows     []*domain.Row // Cached local rows when in remote mode
+	SpinnerFrame  int           // Current spinner animation frame
 }
 
 // packagesLoadedMsg is sent when packages are loaded.
@@ -46,6 +66,16 @@ type packagesLoadedMsg struct {
 	packages []*domain.Package
 	err      error
 }
+
+// remoteSearchResultMsg is sent when a remote search completes.
+type remoteSearchResultMsg struct {
+	packages []*domain.Package
+	query    string
+	err      error
+}
+
+// spinnerTickMsg is sent to animate the spinner.
+type spinnerTickMsg struct{}
 
 // NewModel creates a new application model.
 func NewModel() Model {
@@ -163,4 +193,84 @@ func (m *Model) applyCurrentPreset() {
 	// Apply preset filter
 	preset := m.Presets[m.CurrentPreset]
 	m.Viewport.ApplyPresetFilter(preset.Filter)
+}
+
+// EnterRemoteMode starts a remote search.
+func (m *Model) EnterRemoteMode(query string) tea.Cmd {
+	// Cache current local rows
+	m.LocalRows = m.Viewport.AllRows
+
+	m.ViewMode = ViewRemote
+	m.RemoteQuery = query
+	m.RemoteLoading = true
+	m.RemoteError = ""
+	m.SpinnerFrame = 0
+
+	// Hide install date column for remote mode
+	for _, col := range m.Viewport.Columns {
+		if col.Type == column.ColInstallDate {
+			col.Visible = false
+			break
+		}
+	}
+
+	// Start spinner and search concurrently
+	return tea.Batch(
+		m.doRemoteSearch(query),
+		tickSpinner(),
+	)
+}
+
+// ExitRemoteMode returns to local mode and restores state.
+func (m *Model) ExitRemoteMode() {
+	m.ViewMode = ViewLocal
+	m.RemoteQuery = ""
+	m.RemoteLoading = false
+	m.RemoteError = ""
+
+	// Show install date column again
+	for _, col := range m.Viewport.Columns {
+		if col.Type == column.ColInstallDate {
+			col.Visible = true
+			break
+		}
+	}
+
+	// Restore local rows
+	if m.LocalRows != nil {
+		m.Viewport.SetRows(m.LocalRows)
+		m.LocalRows = nil
+	}
+
+	// Reset to default view
+	m.Viewport.SortColumn = column.ColName
+	m.Viewport.SortReverse = false
+	m.Viewport.ClearFilter()
+	m.Viewport.ScrollToTop()
+	m.CurrentPreset = 0
+	m.applyCurrentPreset()
+}
+
+// doRemoteSearch performs the remote search query.
+func (m Model) doRemoteSearch(query string) tea.Cmd {
+	return func() tea.Msg {
+		packages, err := m.Repo.Search(query)
+		return remoteSearchResultMsg{
+			packages: packages,
+			query:    query,
+			err:      err,
+		}
+	}
+}
+
+// tickSpinner returns a command that sends spinner tick messages.
+func tickSpinner() tea.Cmd {
+	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
+		return spinnerTickMsg{}
+	})
+}
+
+// GetSpinner returns the current spinner frame character.
+func (m Model) GetSpinner() string {
+	return SpinnerFrames[m.SpinnerFrame%len(SpinnerFrames)]
 }

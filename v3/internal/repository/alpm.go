@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Jguer/go-alpm/v2"
 	"github.com/Morganamilo/go-pacmanconf"
@@ -181,10 +182,72 @@ func (r *AlpmRepository) GetForeign() ([]*domain.Package, error) {
 	return nil, nil
 }
 
-// Search searches sync databases.
+// Search searches sync databases for packages matching the query.
 func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
-	// TODO: Search sync databases
-	return nil, nil
+	result := make([]*domain.Package, 0)
+
+	// Search each sync database
+	r.syncDBs.ForEach(func(db alpm.IDB) error {
+		repoName := db.Name()
+		db.PkgCache().ForEach(func(pkg alpm.IPackage) error {
+			// Search in name and description
+			name := pkg.Name()
+			desc := pkg.Description()
+			queryLower := strings.ToLower(query)
+			if strings.Contains(strings.ToLower(name), queryLower) ||
+				strings.Contains(strings.ToLower(desc), queryLower) {
+				p := r.convertSyncPackage(pkg, repoName)
+				result = append(result, p)
+			}
+			return nil
+		})
+		return nil
+	})
+
+	return result, nil
+}
+
+// convertSyncPackage converts an ALPM sync package to our domain package.
+func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) *domain.Package {
+	// Extract dependency names
+	deps := make([]string, 0)
+	pkg.Depends().ForEach(func(dep *alpm.Depend) error {
+		deps = append(deps, dep.Name)
+		return nil
+	})
+
+	// Check if package is installed locally
+	localPkg := r.localDB.Pkg(pkg.Name())
+	installed := localPkg != nil
+
+	p := &domain.Package{
+		Name:          pkg.Name(),
+		Version:       pkg.Version(),
+		Description:   pkg.Description(),
+		Architecture:  pkg.Architecture(),
+		URL:           pkg.URL(),
+		Licenses:      pkg.Licenses().Slice(),
+		Groups:        pkg.Groups().Slice(),
+		Dependencies:  deps,
+		Installed:     installed,
+		InstalledSize: pkg.ISize(),
+		Packager:      pkg.Packager(),
+		BuildDate:     pkg.BuildDate(),
+		Repository:    repoName,
+		IsForeign:     false,
+	}
+
+	// If installed, get install-specific info
+	if localPkg != nil {
+		p.InstallDate = localPkg.InstallDate()
+		if localPkg.Reason() == alpm.PkgReasonExplicit {
+			p.InstallReason = domain.ReasonExplicit
+		} else {
+			p.InstallReason = domain.ReasonDependency
+		}
+	}
+
+	return p
 }
 
 // GetPackage retrieves package details.

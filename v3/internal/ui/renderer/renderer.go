@@ -52,11 +52,28 @@ func RenderWithPaletteOverlay(
 	paletteRows int,
 	offset int,
 ) string {
+	return RenderWithPaletteOverlayAndMode(width, height, columns, colWidths, rows, selectedRow, selectedCol, sortCol, sortReverse, paletteContent, paletteRows, offset, false)
+}
+
+// RenderWithPaletteOverlayAndMode renders the UI with optional remote mode styling.
+func RenderWithPaletteOverlayAndMode(
+	width, height int,
+	columns []*column.Column,
+	colWidths []int,
+	rows []*domain.Row,
+	selectedRow, selectedCol int,
+	sortCol column.Type,
+	sortReverse bool,
+	paletteContent string,
+	paletteRows int,
+	offset int,
+	remoteMode bool,
+) string {
 	// Render header
 	header := RenderHeader(columns, colWidths, selectedCol, sortCol, sortReverse)
 
 	// Render table
-	table := RenderTable(rows, columns, colWidths, selectedRow, offset)
+	table := RenderTableWithMode(rows, columns, colWidths, selectedRow, offset, remoteMode)
 
 	// Calculate available space for table (height - header - status bar - palette)
 	headerLines := strings.Count(header, "\n") + 1
@@ -124,6 +141,7 @@ func RenderWithDetailPanel(
 	sortReverse bool,
 	selectedPackage *domain.Package,
 	offset int,
+	remoteMode bool,
 ) string {
 	isSmallScreen := IsSmallScreen(width)
 	detailPanel := RenderDetailPanel(selectedPackage, columns, colWidths, width, isSmallScreen)
@@ -136,10 +154,11 @@ func RenderWithDetailPanel(
 		// Render header
 		header := RenderHeader(columns, colWidths, selectedCol, sortCol, sortReverse)
 
-		// Render table
-		table := RenderTable(rows, columns, colWidths, selectedRow, offset)
+		// Render table with remote mode flag
+		table := RenderTableWithMode(rows, columns, colWidths, selectedRow, offset, remoteMode)
 
-		// Calculate available space for table (height - header - status bar - detail panel)
+		// Calculate available space for table (height - header - detail panel - status bar)
+		// Note: status bar line is reserved but not included in this render
 		headerLines := strings.Count(header, "\n") + 1
 		statusBarLines := 1
 		availableTableLines := height - headerLines - statusBarLines - detailLines
@@ -175,6 +194,15 @@ func RenderWithDetailPanel(
 		// Compose sections
 		content := lipgloss.JoinVertical(lipgloss.Left, header, table)
 
+		// Ensure content fills exactly (height - statusBarLines) so status bar stays at bottom
+		contentLines := strings.Count(content, "\n") + 1
+		targetLines := height - statusBarLines
+		if contentLines < targetLines {
+			// Add filler to push content to fill the full height minus status bar
+			additionalFiller := strings.Repeat("\n", targetLines-contentLines)
+			content = content + additionalFiller
+		}
+
 		// Apply width constraint
 		style := lipgloss.NewStyle().Width(width)
 		return style.Render(content)
@@ -193,11 +221,19 @@ func RenderWithDetailPanel(
 		// Render header with adjusted widths
 		header := RenderHeader(columns, tableColWidths, selectedCol, sortCol, sortReverse)
 
-		// Render table with adjusted widths
-		table := RenderTable(rows, columns, tableColWidths, selectedRow, offset)
+		// Render table with adjusted widths and remote mode flag
+		table := RenderTableWithMode(rows, columns, tableColWidths, selectedRow, offset, remoteMode)
 
 		// Compose header and table vertically
 		tableContent := lipgloss.JoinVertical(lipgloss.Left, header, table)
+
+		// Add filler to table content to fill height minus status bar
+		tableContentLines := strings.Count(tableContent, "\n") + 1
+		targetLines := height - 1 // Reserve 1 line for status bar
+		if tableContentLines < targetLines {
+			additionalFiller := strings.Repeat("\n", targetLines-tableContentLines)
+			tableContent = tableContent + additionalFiller
+		}
 
 		// Place table and detail panel side by side
 		content := lipgloss.JoinHorizontal(lipgloss.Top, tableContent, "  ", detailPanel)

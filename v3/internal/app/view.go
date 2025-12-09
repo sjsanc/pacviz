@@ -41,6 +41,7 @@ func (m Model) View() string {
 	var commandPalette string
 	var paletteRows int
 	var tableUI string
+	isRemoteMode := m.ViewMode == ViewRemote
 
 	switch m.Mode {
 	case ModeCommand:
@@ -51,20 +52,36 @@ func (m Model) View() string {
 		// Show buffer only for filter mode
 		statusBar = renderer.RenderStatusWithBuffer(m.Buffer, width)
 	case ModeNormal:
-		// Show normal status line
 		filterText := ""
 		if m.Viewport.Filter.Active && len(m.Viewport.Filter.Terms) > 0 {
 			filterText = m.Viewport.Filter.Terms[0]
 		}
-		presetName := m.Presets[m.CurrentPreset].Name
-		statusBar = renderer.RenderStatus(
-			presetName,
-			len(m.Viewport.VisibleRows),
-			m.Viewport.Height,
-			m.Viewport.Offset,
-			filterText,
-			width,
-		)
+
+		if isRemoteMode {
+			// Show remote status line
+			statusBar = renderer.RenderRemoteStatus(
+				m.RemoteQuery,
+				len(m.Viewport.VisibleRows),
+				m.Viewport.Height,
+				m.Viewport.Offset,
+				filterText,
+				m.RemoteLoading,
+				m.GetSpinner(),
+				m.RemoteError,
+				width,
+			)
+		} else {
+			// Show normal status line
+			presetName := m.Presets[m.CurrentPreset].Name
+			statusBar = renderer.RenderStatus(
+				presetName,
+				len(m.Viewport.VisibleRows),
+				m.Viewport.Height,
+				m.Viewport.Offset,
+				filterText,
+				width,
+			)
+		}
 	}
 
 	// Render the table with detail panel or palette overlay
@@ -83,10 +100,16 @@ func (m Model) View() string {
 			m.Viewport.SortReverse,
 			selectedPackage,
 			m.Viewport.Offset,
+			isRemoteMode,
 		)
+		// Add status bar at the bottom for detail panel
+		if statusBar != "" {
+			return lipgloss.JoinVertical(lipgloss.Left, tableUI, statusBar)
+		}
+		return tableUI
 	} else if commandPalette != "" {
 		// Show command palette overlay
-		tableUI = renderer.RenderWithPaletteOverlay(
+		tableUI = renderer.RenderWithPaletteOverlayAndMode(
 			width,
 			m.Height,
 			m.Viewport.Columns,
@@ -99,10 +122,11 @@ func (m Model) View() string {
 			commandPalette,
 			paletteRows,
 			m.Viewport.Offset,
+			isRemoteMode,
 		)
 	} else {
 		// No overlay, render normally
-		tableUI = renderer.RenderWithPaletteOverlay(
+		tableUI = renderer.RenderWithPaletteOverlayAndMode(
 			width,
 			m.Height,
 			m.Viewport.Columns,
@@ -115,6 +139,7 @@ func (m Model) View() string {
 			"",
 			0,
 			m.Viewport.Offset,
+			isRemoteMode,
 		)
 	}
 

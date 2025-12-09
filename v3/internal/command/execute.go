@@ -15,6 +15,7 @@ type ExecuteResult struct {
 	ScrollEnd    bool   // Whether to scroll to end
 	Error        string // Error message if command failed
 	PresetChange string // Preset to switch to (empty = no change)
+	RemoteSearch string // Remote search query (empty = no search)
 }
 
 // Execute parses and executes a command string.
@@ -52,6 +53,8 @@ func Execute(commandStr string) ExecuteResult {
 		return ExecuteResult{Quit: true, GoToLine: -1}
 	case "p", "preset":
 		return executePreset(args)
+	case "s", "search":
+		return executeSearch(args)
 	default:
 		return ExecuteResult{
 			GoToLine: -1,
@@ -113,6 +116,24 @@ func executePreset(args []string) ExecuteResult {
 	return ExecuteResult{
 		GoToLine:     -1,
 		PresetChange: preset,
+	}
+}
+
+// executeSearch handles the :s <query> command.
+func executeSearch(args []string) ExecuteResult {
+	if len(args) == 0 {
+		return ExecuteResult{
+			GoToLine: -1,
+			Error:    "Usage: :search <query>",
+		}
+	}
+
+	// Join all args to allow multi-word search queries
+	query := strings.Join(args, " ")
+
+	return ExecuteResult{
+		GoToLine:     -1,
+		RemoteSearch: query,
 	}
 }
 
