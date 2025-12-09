@@ -1,0 +1,26 @@
+# Development configuration for pacviz
+# This is an example configuration file using TOML format
+
+[theme]
+# Color values should be hex codes (e.g., #RRGGBB)
+# All values below are optional - if not specified, defaults are used
+
+# Primary accent colors for different UI elements
+accent1 = "#7aa2f7"      # Blue - headers, primary UI elements
+accent2 = "#bb9af7"      # Purple - footer, secondary accents
+accent3 = "#9ece6a"      # Green
+accent4 = "#e0af68"      # Orange/Gold
+accent5 = "#f7768e"      # Red/Pink
+
+# Background colors
+background = "#1a1b26"    # Main background (dark)
+background_alt = "#16161e" # Alternate background for striped rows
+
+# Text colors
+foreground = "#c0caf5"    # Main text color
+dimmed = "#565f89"        # Secondary/dimmed text
+
+# Selection and special mode colors
+selected = "#283457"      # Selected row background
+remote_accent = "#e0af68" # Accent color for remote search mode
+warning_accent = "#ff9e64" # Accent color for install/remove operations
