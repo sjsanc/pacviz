@@ -42,16 +42,6 @@ func (v *Viewport) ApplyFilter(term string) {
 	v.Offset = 0
 }
 
-// ApplyFilterState filters the rows based on a complete filter state.
-func (v *Viewport) ApplyFilterState(filter domain.FilterState) {
-	v.Filter = filter
-	// TODO: Implement advanced filtering with multiple terms, regex, column-specific
-	// For now, fall back to simple filtering
-	if len(filter.Terms) > 0 {
-		v.ApplyFilter(filter.Terms[0])
-	}
-}
-
 // ClearFilter removes all filters and restores all rows.
 func (v *Viewport) ClearFilter() {
 	v.Filter = domain.FilterState{Active: false}

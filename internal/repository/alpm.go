@@ -152,24 +152,6 @@ func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 	}
 }
 
-// GetExplicit returns explicitly installed packages.
-func (r *AlpmRepository) GetExplicit() ([]*domain.Package, error) {
-	// TODO: Filter by InstallReason == Explicit
-	return nil, nil
-}
-
-// GetOrphans returns orphaned packages.
-func (r *AlpmRepository) GetOrphans() ([]*domain.Package, error) {
-	// TODO: Find packages with no reverse dependencies
-	return nil, nil
-}
-
-// GetForeign returns foreign packages.
-func (r *AlpmRepository) GetForeign() ([]*domain.Package, error) {
-	// TODO: Find packages not in any sync database
-	return nil, nil
-}
-
 // Search searches sync databases for packages matching the query.
 func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
 	result := make([]*domain.Package, 0)
@@ -231,12 +213,6 @@ func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) 
 	}
 
 	return p
-}
-
-// GetPackage retrieves package details.
-func (r *AlpmRepository) GetPackage(name string) (*domain.Package, error) {
-	// TODO: Query package by name
-	return nil, nil
 }
 
 // Install installs packages using pacman.

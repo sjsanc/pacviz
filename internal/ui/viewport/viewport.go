@@ -76,9 +76,8 @@ func (v *Viewport) GetSelectedPackage() *domain.Package {
 	return v.VisibleRows[v.SelectedRow].Package
 }
 
-// updateVisibleRows updates the visible rows based on current filter.
+// updateVisibleRows updates the visible rows after sorting.
+// Note: Filtering is handled separately via ApplyFilter and ApplyPresetFilter.
 func (v *Viewport) updateVisibleRows() {
-	// For now, just copy all rows
-	// TODO: Apply filtering
 	v.VisibleRows = v.AllRows
 }

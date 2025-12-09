@@ -19,9 +19,3 @@ func NewRow(pkg *Package) *Row {
 		Cells:   make(map[column.Type]string),
 	}
 }
-
-// Match checks if the row matches the given filter.
-func (r *Row) Match(filter FilterState) bool {
-	// TODO: Implement filter matching logic
-	return true
-}

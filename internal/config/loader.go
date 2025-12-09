@@ -137,11 +137,3 @@ func getConfigPath() (string, error) {
 	}
 	return filepath.Join(home, ".config", "pacviz", "config.toml"), nil
 }
-
-// Save saves configuration to file.
-func Save(config *Config, path string) error {
-	// TODO: Create directory if needed
-	// TODO: Marshal config to INI
-	// TODO: Write to file
-	return nil
-}
