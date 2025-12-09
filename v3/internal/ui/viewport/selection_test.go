@@ -158,7 +158,7 @@ func TestEnsureSelectionVisible(t *testing.T) {
 	// Test: Selection before viewport
 	v.Offset = 20
 	v.SelectedRow = 15
-	v.ensureSelectionVisible()
+	v.EnsureSelectionVisible()
 	if v.Offset != 15 {
 		t.Errorf("Expected Offset to be 15 when selection is before viewport, got %d", v.Offset)
 	}
@@ -166,7 +166,7 @@ func TestEnsureSelectionVisible(t *testing.T) {
 	// Test: Selection after viewport
 	v.Offset = 0
 	v.SelectedRow = 15
-	v.ensureSelectionVisible()
+	v.EnsureSelectionVisible()
 	if v.Offset != 6 {
 		t.Errorf("Expected Offset to be 6 (15-10+1) when selection is after viewport, got %d", v.Offset)
 	}
@@ -174,7 +174,7 @@ func TestEnsureSelectionVisible(t *testing.T) {
 	// Test: Selection within viewport (should not change offset)
 	v.Offset = 10
 	v.SelectedRow = 15
-	v.ensureSelectionVisible()
+	v.EnsureSelectionVisible()
 	if v.Offset != 10 {
 		t.Errorf("Expected Offset to remain 10 when selection is within viewport, got %d", v.Offset)
 	}

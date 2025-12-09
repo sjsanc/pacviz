@@ -22,11 +22,7 @@ func PackageToRow(pkg *Package, index int) *Row {
 
 	// Format cells
 	row.Cells[column.ColIndex] = fmt.Sprintf("%d", index)
-	if pkg.IsForeign {
-		row.Cells[column.ColAUR] = "AUR"
-	} else {
-		row.Cells[column.ColAUR] = ""
-	}
+	row.Cells[column.ColRepo] = pkg.Repository
 	row.Cells[column.ColName] = pkg.Name
 	row.Cells[column.ColVersion] = pkg.Version
 	row.Cells[column.ColSize] = formatSize(pkg.InstalledSize)

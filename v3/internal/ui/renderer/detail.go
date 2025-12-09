@@ -54,11 +54,7 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		return panelStyle.Render(content)
 	} else {
 		// Large screen: render as side panel on the right
-		// Calculate width for side panel (30% of screen width, min 40 chars)
-		panelWidth := width * 30 / 100
-		if panelWidth < 40 {
-			panelWidth = 40
-		}
+		panelWidth := CalculateDetailPanelWidth(width)
 
 		panelStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -71,6 +67,35 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 }
 
 // IsSmallScreen determines if the screen is small based on width.
+// Below this threshold, the detail panel renders as an overlay above the status bar.
+// At or above this threshold, it renders side-by-side with the table.
 func IsSmallScreen(width int) bool {
-	return width < 120
+	// Minimum width for side-by-side rendering:
+	// - Table needs at least 80 chars to be readable
+	// - Detail panel needs at least 50 chars
+	// - 2 chars for spacing
+	// Total: 132 chars minimum
+	return width < 140
+}
+
+// CalculateDetailPanelWidth calculates the width of the detail panel for large screens.
+// Returns the total width of the panel including borders.
+func CalculateDetailPanelWidth(width int) int {
+	const maxPanelWidth = 60
+	const minTableWidth = 80
+	const spacing = 2
+
+	// Calculate panel width ensuring table has minimum width
+	panelWidth := maxPanelWidth
+	if width-spacing < minTableWidth+panelWidth {
+		// Not enough space for max panel width, reduce it
+		panelWidth = width - minTableWidth - spacing
+	}
+
+	// Ensure panel has minimum width of 45 chars
+	if panelWidth < 45 {
+		panelWidth = 45
+	}
+
+	return panelWidth
 }

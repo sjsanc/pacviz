@@ -16,7 +16,7 @@ func (v *Viewport) Scroll(delta int) {
 	}
 
 	v.SelectedRow = newSelectedRow
-	v.ensureSelectionVisible()
+	v.EnsureSelectionVisible()
 }
 
 // ScrollToTop jumps to the first row.

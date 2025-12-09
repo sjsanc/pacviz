@@ -34,9 +34,10 @@ type Package struct {
 	BuildDate     time.Time
 
 	// Computed fields
-	Required  []string // packages depending on this
-	IsOrphan  bool
-	IsForeign bool
-	HasUpdate bool
+	Required   []string // packages depending on this
+	Repository string   // repository name (e.g., "core", "extra", "AUR", "foreign")
+	IsOrphan   bool
+	IsForeign  bool
+	HasUpdate  bool
 	NewVersion string
 }

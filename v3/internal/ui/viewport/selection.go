@@ -15,7 +15,7 @@ func (v *Viewport) SelectRow(index int) {
 	}
 
 	v.SelectedRow = index
-	v.ensureSelectionVisible()
+	v.EnsureSelectionVisible()
 }
 
 // SelectNext moves the selection down by one row.
@@ -26,7 +26,7 @@ func (v *Viewport) SelectNext() {
 
 	if v.SelectedRow < len(v.VisibleRows)-1 {
 		v.SelectedRow++
-		v.ensureSelectionVisible()
+		v.EnsureSelectionVisible()
 	}
 }
 
@@ -38,12 +38,12 @@ func (v *Viewport) SelectPrev() {
 
 	if v.SelectedRow > 0 {
 		v.SelectedRow--
-		v.ensureSelectionVisible()
+		v.EnsureSelectionVisible()
 	}
 }
 
-// ensureSelectionVisible adjusts the viewport offset to keep the selected row visible.
-func (v *Viewport) ensureSelectionVisible() {
+// EnsureSelectionVisible adjusts the viewport offset to keep the selected row visible.
+func (v *Viewport) EnsureSelectionVisible() {
 	if v.Height == 0 {
 		return
 	}

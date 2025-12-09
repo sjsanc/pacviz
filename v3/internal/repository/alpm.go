@@ -136,21 +136,30 @@ func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 	}
 }
 
-// computeForeign marks packages that are not in any sync database as foreign.
+// computeForeign marks packages that are not in any sync database as foreign
+// and populates the repository name for all packages.
 func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
-	// Build a set of packages in sync databases
-	syncPkgs := make(map[string]bool)
+	// Build a map of package names to their repository
+	pkgToRepo := make(map[string]string)
 	r.syncDBs.ForEach(func(db alpm.IDB) error {
+		repoName := db.Name()
 		db.PkgCache().ForEach(func(pkg alpm.IPackage) error {
-			syncPkgs[pkg.Name()] = true
+			pkgToRepo[pkg.Name()] = repoName
 			return nil
 		})
 		return nil
 	})
 
-	// Mark packages not in sync databases as foreign
+	// Set repository name and mark foreign packages
 	for _, pkg := range packages {
-		pkg.IsForeign = !syncPkgs[pkg.Name]
+		if repo, exists := pkgToRepo[pkg.Name]; exists {
+			pkg.Repository = repo
+			pkg.IsForeign = false
+		} else {
+			// Package not in any sync database
+			pkg.Repository = "foreign"
+			pkg.IsForeign = true
+		}
 	}
 }
 

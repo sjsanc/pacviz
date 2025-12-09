@@ -31,9 +31,6 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 			if col.Type == column.ColIndex {
 				// Index should reflect absolute position in the full list (1-based)
 				content = fmt.Sprintf("%d", offset+rowIdx+1)
-			} else if col.Type == column.ColAUR {
-				// Display "AUR" for foreign packages
-				content = row.Cells[col.Type]
 			} else {
 				content = row.Cells[col.Type]
 			}
@@ -44,9 +41,9 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 				contentWidth = 1
 			}
 
-			// Handle text alignment for index and AUR columns (right-aligned)
-			if col.Type == column.ColIndex || col.Type == column.ColAUR {
-				// Right-align for index and AUR columns
+			// Handle text alignment
+			if col.Type == column.ColIndex {
+				// Right-align for index column
 				if len(content) < contentWidth {
 					content = strings.Repeat(" ", contentWidth-len(content)) + content
 				}
@@ -68,8 +65,8 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 
 			// Choose style
 			var style lipgloss.Style
-			if col.Type == column.ColIndex || col.Type == column.ColAUR {
-				// Index and AUR columns use dimmed style (dark-ish foreground)
+			if col.Type == column.ColIndex {
+				// Index column uses dimmed style (dark-ish foreground)
 				style = styles.Index
 				if rowIdx == selectedRow {
 					style = styles.RowSelected.Copy().Foreground(styles.Dimmed)
@@ -77,6 +74,30 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 					style = styles.Index.Copy().Background(styles.Background)
 				} else {
 					style = styles.Index.Copy().Background(lipgloss.Color("#16161e"))
+				}
+			} else if col.Type == column.ColRepo {
+				// Repo column: bright color for foreign packages, dimmed for official repos
+				isForeign := row.Package != nil && row.Package.IsForeign
+				if rowIdx == selectedRow {
+					if isForeign {
+						style = styles.RowSelected.Copy().Foreground(styles.Accent2)
+					} else {
+						style = styles.RowSelected.Copy().Foreground(styles.Dimmed)
+					}
+				} else {
+					if isForeign {
+						// Bright purple/magenta for foreign packages
+						style = styles.Index.Copy().Foreground(styles.Accent2)
+					} else {
+						// Dimmed for official repos
+						style = styles.Index
+					}
+					// Apply background for alternating rows
+					if rowIdx%2 == 0 {
+						style = style.Copy().Background(styles.Background)
+					} else {
+						style = style.Copy().Background(lipgloss.Color("#16161e"))
+					}
 				}
 			} else {
 				// Regular row styling

@@ -220,6 +220,8 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.Height = msg.Height
 	// Reserve 1 line for header + 1 line for status bar
 	m.Viewport.Height = msg.Height - 2
+	// Ensure selection is still visible after resize
+	m.Viewport.EnsureSelectionVisible()
 	return m, nil
 }
 

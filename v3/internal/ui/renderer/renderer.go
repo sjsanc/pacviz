@@ -180,17 +180,12 @@ func RenderWithDetailPanel(
 		return style.Render(content)
 	} else {
 		// Large screen: render detail panel on the right side
-		// Calculate panel width from detail panel
-		panelLines := strings.Split(detailPanel, "\n")
-		panelWidth := 0
-		for _, line := range panelLines {
-			if len(line) > panelWidth {
-				panelWidth = len(line)
-			}
-		}
+		// Calculate panel width using the same logic as the detail panel renderer
+		panelWidth := CalculateDetailPanelWidth(width)
 
 		// Adjust table width
-		tableWidth := width - panelWidth - 2 // 2 for spacing
+		const spacing = 2
+		tableWidth := width - panelWidth - spacing
 
 		// Recalculate column widths for reduced table width
 		tableColWidths := column.CalculateWidths(columns, tableWidth)

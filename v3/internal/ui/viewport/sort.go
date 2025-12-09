@@ -42,6 +42,8 @@ func (v *Viewport) compareRows(a, b *domain.Row) bool {
 	}
 
 	switch v.SortColumn {
+	case column.ColRepo:
+		return strings.ToLower(a.Package.Repository) < strings.ToLower(b.Package.Repository)
 	case column.ColName:
 		return strings.ToLower(a.Package.Name) < strings.ToLower(b.Package.Name)
 	case column.ColVersion:

@@ -8,6 +8,7 @@ const (
 	PresetDependency PresetType = "dependency"
 	PresetOrphans    PresetType = "orphans"
 	PresetForeign    PresetType = "foreign"
+	PresetAUR        PresetType = "aur"
 	PresetAll        PresetType = "all"
 )
 
@@ -50,6 +51,14 @@ func DefaultPresets() []Preset {
 			Type:        PresetForeign,
 			Name:        "Foreign",
 			Description: "Packages not in sync databases",
+			Filter: func(p *Package) bool {
+				return p.IsForeign
+			},
+		},
+		{
+			Type:        PresetAUR,
+			Name:        "AUR",
+			Description: "AUR and foreign packages",
 			Filter: func(p *Package) bool {
 				return p.IsForeign
 			},

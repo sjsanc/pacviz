@@ -39,9 +39,9 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 		// Use lipgloss.Width for proper Unicode width calculation
 		headerWidth := lipgloss.Width(header)
 
-		// Handle text alignment for index and AUR columns (right-aligned)
-		if col.Type == column.ColIndex || col.Type == column.ColAUR {
-			// Right-align for index and AUR columns
+		// Handle text alignment for index column (right-aligned)
+		if col.Type == column.ColIndex {
+			// Right-align for index column
 			if headerWidth < contentWidth {
 				header = strings.Repeat(" ", contentWidth-headerWidth) + header
 			}
@@ -63,8 +63,8 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 
 		// Apply style
 		style := styles.Header
-		if col.Type == column.ColIndex || col.Type == column.ColAUR {
-			// Index and AUR column headers use dimmed style
+		if col.Type == column.ColIndex || col.Type == column.ColRepo {
+			// Index and Repo column headers use dimmed style
 			style = styles.Header.Copy().Foreground(styles.Dimmed)
 		}
 		if i == selectedCol {
