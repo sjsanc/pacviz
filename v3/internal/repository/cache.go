@@ -66,15 +66,15 @@ func (c *CachedRepository) GetPackage(name string) (*domain.Package, error) {
 }
 
 // Install invalidates cache and installs.
-func (c *CachedRepository) Install(names []string) error {
+func (c *CachedRepository) Install(names []string, password string) (string, error) {
 	// TODO: Invalidate installed cache after install
-	return c.repo.Install(names)
+	return c.repo.Install(names, password)
 }
 
 // Remove invalidates cache and removes.
-func (c *CachedRepository) Remove(names []string, cascade bool) error {
+func (c *CachedRepository) Remove(names []string, cascade bool, password string) (string, error) {
 	// TODO: Invalidate installed cache after remove
-	return c.repo.Remove(names, cascade)
+	return c.repo.Remove(names, cascade, password)
 }
 
 // Refresh invalidates all caches and refreshes.

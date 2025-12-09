@@ -27,6 +27,11 @@ func PackageToRow(pkg *Package, index int) *Row {
 	row.Cells[column.ColVersion] = pkg.Version
 	row.Cells[column.ColSize] = formatSize(pkg.InstalledSize)
 	row.Cells[column.ColInstallDate] = pkg.InstallDate.Format("2006-01-02")
+	if pkg.Installed {
+		row.Cells[column.ColInstalled] = "Yes"
+	} else {
+		row.Cells[column.ColInstalled] = "No"
+	}
 	row.Cells[column.ColGroups] = strings.Join(pkg.Groups, ", ")
 	row.Cells[column.ColDescription] = pkg.Description
 

@@ -9,13 +9,15 @@ import (
 
 // ExecuteResult represents the result of executing a command.
 type ExecuteResult struct {
-	Quit         bool   // Whether to quit the application
-	GoToLine     int    // Line number to jump to (-1 = no jump)
-	ScrollTop    bool   // Whether to scroll to top
-	ScrollEnd    bool   // Whether to scroll to end
-	Error        string // Error message if command failed
-	PresetChange string // Preset to switch to (empty = no change)
-	RemoteSearch string // Remote search query (empty = no search)
+	Quit           bool   // Whether to quit the application
+	GoToLine       int    // Line number to jump to (-1 = no jump)
+	ScrollTop      bool   // Whether to scroll to top
+	ScrollEnd      bool   // Whether to scroll to end
+	Error          string // Error message if command failed
+	PresetChange   string // Preset to switch to (empty = no change)
+	RemoteSearch   string // Remote search query (empty = no search)
+	InstallPackage bool   // Whether to install the selected package
+	RemovePackage  bool   // Whether to remove the selected package
 }
 
 // Execute parses and executes a command string.
@@ -55,6 +57,10 @@ func Execute(commandStr string) ExecuteResult {
 		return executePreset(args)
 	case "s", "search":
 		return executeSearch(args)
+	case "i", "install":
+		return ExecuteResult{InstallPackage: true, GoToLine: -1}
+	case "r", "remove":
+		return ExecuteResult{RemovePackage: true, GoToLine: -1}
 	default:
 		return ExecuteResult{
 			GoToLine: -1,

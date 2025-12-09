@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sjsanc/pacviz/v3/internal/command"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
+	"github.com/sjsanc/pacviz/v3/internal/ui/column"
 )
 
 // Update handles incoming messages and updates the model (Bubble Tea interface).
@@ -13,8 +14,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePackagesLoaded(msg)
 	case remoteSearchResultMsg:
 		return m.handleRemoteSearchResult(msg)
+	case repositoryRefreshedMsg:
+		return m.handleRepositoryRefreshed(msg)
 	case spinnerTickMsg:
 		return m.handleSpinnerTick()
+	case installCompleteMsg:
+		return m.handleInstallComplete(msg)
+	case removeCompleteMsg:
+		return m.handleRemoveComplete(msg)
 	case command.CommandResultMsg:
 		return m.handleCommandResult(msg)
 	case tea.KeyMsg:
@@ -34,13 +41,23 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 		return m, nil
 	}
 
-	// Convert packages to rows
 	rows := domain.PackagesToRows(msg.packages)
 	m.Viewport.SetRows(rows)
 	m.Ready = true
 
-	// Apply the initial preset filter (Explicit)
 	m.applyCurrentPreset()
+
+	// Ensure SelectedRow is within valid bounds after data reload
+	if m.Viewport.SelectedRow >= len(m.Viewport.VisibleRows) {
+		if len(m.Viewport.VisibleRows) > 0 {
+			m.Viewport.SelectedRow = len(m.Viewport.VisibleRows) - 1
+		} else {
+			m.Viewport.SelectedRow = 0
+		}
+	}
+	if m.Viewport.SelectedRow < 0 && len(m.Viewport.VisibleRows) > 0 {
+		m.Viewport.SelectedRow = 0
+	}
 
 	return m, nil
 }
@@ -58,10 +75,7 @@ func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, t
 		return m, nil
 	}
 
-	// Clear any previous error
 	m.RemoteError = ""
-
-	// Convert packages to rows and display
 	rows := domain.PackagesToRows(msg.packages)
 	m.Viewport.SetRows(rows)
 	m.Viewport.ScrollToTop()
@@ -69,14 +83,51 @@ func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, t
 	return m, nil
 }
 
+func (m Model) handleRepositoryRefreshed(msg repositoryRefreshedMsg) (tea.Model, tea.Cmd) {
+	if msg.shouldReload {
+		return m, m.loadPackages
+	}
+	return m, nil
+}
+
 func (m Model) handleSpinnerTick() (tea.Model, tea.Cmd) {
-	// Only continue spinning if we're still loading
-	if !m.RemoteLoading {
+	// Only continue spinning if we're still loading, installing, or removing
+	if !m.RemoteLoading && !m.Installing && !m.Removing {
 		return m, nil
 	}
 
 	m.SpinnerFrame++
 	return m, tickSpinner()
+}
+
+func (m Model) handleInstallComplete(msg installCompleteMsg) (tea.Model, tea.Cmd) {
+	m.Installing = false
+	m.InstallingPkg = ""
+
+	m.InstallError = ""
+	m.InstallOutput = msg.output
+
+	if msg.err != nil {
+		m.InstallError = msg.err.Error()
+	}
+
+	// Refresh repository, then reload packages
+	return m, m.refreshRepository(true)
+}
+
+func (m Model) handleRemoveComplete(msg removeCompleteMsg) (tea.Model, tea.Cmd) {
+	m.Removing = false
+	m.RemovingPkg = ""
+
+	m.RemoveError = ""
+	m.RemoveOutput = msg.output
+
+	if msg.err != nil {
+		m.RemoveError = msg.err.Error()
+	}
+
+	// Refresh repository, then reload packages
+	return m, m.refreshRepository(true)
 }
 
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -88,6 +139,8 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleCommandModeInput(key)
 	case ModeFilter:
 		return m.handleFilterModeInput(key)
+	case ModePassword:
+		return m.handlePasswordModeInput(key)
 	case ModeNormal:
 		return m.handleNormalModeInput(key)
 	}
@@ -96,12 +149,72 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
+	if m.PendingInstall {
+		switch key {
+		case "enter":
+			// Check if we need a password
+			if !IsRunningAsRoot() {
+				// Prompt for password
+				m.EnterPasswordMode()
+				return m, nil
+			}
+			// Already root, proceed with installation
+			pkgName := m.InstallingPkg
+			return m, m.InstallPackage(pkgName, "")
+		case "esc", "ctrl+c":
+			m.CancelInstall()
+			return m, nil
+		default:
+			return m, nil
+		}
+	}
+
+	if m.PendingRemoval {
+		switch key {
+		case "enter":
+			// Check if we need a password
+			if !IsRunningAsRoot() {
+				// Prompt for password
+				m.EnterPasswordMode()
+				return m, nil
+			}
+			// Already root, proceed with removal
+			pkgName := m.RemovingPkg
+			return m, m.RemovePackage(pkgName, "")
+		case "esc", "ctrl+c":
+			m.CancelRemoval()
+			return m, nil
+		default:
+			return m, nil
+		}
+	}
+
 	switch key {
 	case "ctrl+c", "q":
 		return m, tea.Quit
-
-	// Handle escape: exit remote mode, or clear filter
+	case "enter":
+		// If output palette is active, dismiss it and clear state
+		if m.RemoveOutput != "" {
+			m.RemoveOutput = ""
+			m.RemoveError = ""
+			return m, nil
+		}
+		if m.InstallOutput != "" {
+			m.InstallOutput = ""
+			m.InstallError = ""
+			return m, nil
+		}
+		// Otherwise toggle detail panel
+		m.ShowDetailPanel = !m.ShowDetailPanel
 	case "esc":
+		if m.RemoveOutput != "" {
+			m.RemoveOutput = ""
+			return m, nil
+		}
+		if m.InstallOutput != "" {
+			m.InstallOutput = ""
+			return m, nil
+		}
 		if m.ViewMode == ViewRemote {
 			m.ExitRemoteMode()
 			return m, nil
@@ -109,54 +222,41 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 		if m.Viewport.Filter.Active {
 			m.Viewport.ClearFilter()
 		}
-
-	// Mode switching
 	case ":":
 		m.EnterCommandMode()
 	case "/":
 		m.EnterFilterMode()
-
-	// Vertical navigation
 	case "up", "k":
 		m.Viewport.SelectPrev()
 	case "down", "j":
 		m.Viewport.SelectNext()
-
-	// Page navigation
 	case "ctrl+u":
 		m.Viewport.PageUp()
 	case "ctrl+d":
 		m.Viewport.PageDown()
-
-	// Jump navigation
 	case "home", "g":
 		if key == "g" {
-			// For vim-style gg, we'd need to track previous key
-			// For now, just treat single 'g' as go to top
 			m.Viewport.ScrollToTop()
 		} else {
 			m.Viewport.ScrollToTop()
 		}
 	case "G", "end":
 		m.Viewport.ScrollToBottom()
-
-	// Horizontal navigation
 	case "left", "h":
 		m.Viewport.PrevColumn()
 	case "right", "l":
 		m.Viewport.NextColumn()
-
-	// Sort toggle
 	case " ", "space":
 		m.Viewport.ToggleSortCurrentColumn()
-
-	// Preset switching
 	case "tab":
 		m.NextPreset()
-
-	// Detail panel toggle
-	case "enter", "i":
-		m.ShowDetailPanel = !m.ShowDetailPanel
+	case "i":
+		if m.ViewMode == ViewRemote && m.ShowDetailPanel && m.Viewport.SelectedRow >= 0 && m.Viewport.SelectedRow < len(m.Viewport.VisibleRows) {
+			// In detail view in remote mode, pressing 'i' initiates install
+			selectedRow := m.Viewport.VisibleRows[m.Viewport.SelectedRow]
+			pkgName := selectedRow.Cells[column.ColName]
+			m.InitiateInstall(pkgName)
+		}
 	}
 
 	return m, nil
@@ -165,16 +265,13 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 func (m Model) handleCommandModeInput(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "esc":
-		// Cancel command mode
 		m.ExitMode()
 		return m, nil
 	case "enter":
-		// Execute command
 		cmd := m.executeCommand()
 		m.ExitMode()
 		return m, cmd
 	default:
-		// Write to buffer
 		m.WriteToBuffer(key)
 		return m, nil
 	}
@@ -183,24 +280,17 @@ func (m Model) handleCommandModeInput(key string) (tea.Model, tea.Cmd) {
 func (m Model) handleFilterModeInput(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "esc":
-		// Cancel filter mode and reset filter
 		m.ExitMode()
 		m.Viewport.ClearFilter()
 	case "enter":
-		// Accept filter and hide buffer (keep filter active)
 		m.ExitMode()
 	case "backspace":
-		// Handle backspace
 		m.WriteToBuffer(key)
 		filterTerm := m.GetBufferContent()
 		m.Viewport.ApplyFilter(filterTerm)
 	case "left", "right":
-		// Allow cursor movement keys but don't process them for now
-		// (buffer editing with cursor movement can be added later if needed)
 	case "up", "down", "ctrl+a", "ctrl+e", "ctrl+k", "ctrl+u", "ctrl+w":
-		// Ignore control/navigation keys that shouldn't be in search
 	default:
-		// Only accept printable characters (exclude special/control keys)
 		if isValidSearchChar(key) {
 			m.WriteToBuffer(key)
 			filterTerm := m.GetBufferContent()
@@ -211,6 +301,41 @@ func (m Model) handleFilterModeInput(key string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) handlePasswordModeInput(key string) (tea.Model, tea.Cmd) {
+	switch key {
+	case "esc":
+		// Cancel password entry and operation
+		m.ExitMode()
+		m.ClearPasswordBuffer()
+		if m.PendingInstall {
+			m.CancelInstall()
+		}
+		if m.PendingRemoval {
+			m.CancelRemoval()
+		}
+		return m, nil
+	case "enter":
+		// Submit password and proceed with operation
+		password := m.PasswordBuffer
+		m.ExitMode()
+		m.ClearPasswordBuffer()
+
+		if m.PendingInstall {
+			pkgName := m.InstallingPkg
+			return m, m.InstallPackage(pkgName, password)
+		}
+		if m.PendingRemoval {
+			pkgName := m.RemovingPkg
+			return m, m.RemovePackage(pkgName, password)
+		}
+		return m, nil
+	default:
+		// Add character to password buffer
+		m.WriteToPasswordBuffer(key)
+		return m, nil
+	}
+}
+
 func (m *Model) executeCommand() tea.Cmd {
 	commandStr := m.GetBufferContent()
 	return command.ExecuteCommandMsg(commandStr)
@@ -219,42 +344,59 @@ func (m *Model) executeCommand() tea.Cmd {
 func (m Model) handleCommandResult(msg command.CommandResultMsg) (tea.Model, tea.Cmd) {
 	result := msg.Result
 
-	// Handle errors
 	if result.Error != "" {
 		m.RemoteError = result.Error
 		return m, nil
 	}
 
-	// Handle quit
 	if result.Quit {
 		return m, tea.Quit
 	}
 
-	// Handle remote search
 	if result.RemoteSearch != "" {
 		return m, m.EnterRemoteMode(result.RemoteSearch)
 	}
 
-	// Handle preset change
 	if result.PresetChange != "" {
 		if !m.SetPreset(result.PresetChange) {
 			m.RemoteError = "Invalid preset"
 		}
 	}
 
-	// Handle go to line
 	if result.GoToLine >= 0 {
 		m.Viewport.ScrollToLine(result.GoToLine)
 	}
 
-	// Handle scroll to top
 	if result.ScrollTop {
 		m.Viewport.ScrollToTop()
 	}
 
-	// Handle scroll to end
 	if result.ScrollEnd {
 		m.Viewport.ScrollToBottom()
+	}
+
+	if result.InstallPackage {
+		if m.ViewMode == ViewRemote && m.Viewport.SelectedRow >= 0 && m.Viewport.SelectedRow < len(m.Viewport.VisibleRows) {
+			selectedRow := m.Viewport.VisibleRows[m.Viewport.SelectedRow]
+			pkgName := selectedRow.Cells[column.ColName]
+			m.InitiateInstall(pkgName)
+		} else if m.ViewMode != ViewRemote {
+			m.RemoteError = "Install command only works in search mode"
+		} else {
+			m.RemoteError = "No package selected"
+		}
+	}
+
+	if result.RemovePackage {
+		if m.ViewMode == ViewLocal && m.Viewport.SelectedRow >= 0 && m.Viewport.SelectedRow < len(m.Viewport.VisibleRows) {
+			selectedRow := m.Viewport.VisibleRows[m.Viewport.SelectedRow]
+			pkgName := selectedRow.Cells[column.ColName]
+			m.InitiateRemoval(pkgName)
+		} else if m.ViewMode != ViewLocal {
+			m.RemoteError = "Remove command only works in local mode"
+		} else {
+			m.RemoteError = "No package selected"
+		}
 	}
 
 	return m, nil
@@ -271,27 +413,20 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	// Only handle left click
 	if msg.Type != tea.MouseLeft {
 		return m, nil
 	}
 
-	// Only handle clicks in normal mode
 	if m.Mode != ModeNormal {
 		return m, nil
 	}
 
-	// Calculate which row was clicked
-	// Row 0 is the header, so subtract 1 to get table row
-	// Also account for the offset
 	if msg.Y <= 0 {
-		// Clicked on header, ignore
 		return m, nil
 	}
 
 	clickedRow := msg.Y - 1 + m.Viewport.Offset
 
-	// Make sure the clicked row is valid
 	if clickedRow >= 0 && clickedRow < len(m.Viewport.VisibleRows) {
 		m.Viewport.SelectedRow = clickedRow
 	}

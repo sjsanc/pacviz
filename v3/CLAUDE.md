@@ -103,6 +103,36 @@ The viewport maintains separate preset filters (functions) and text filters (ter
 **Mouse Support** (`internal/app/update.go:226-253`):
 Click handling accounts for header row and viewport offset when calculating which package was selected.
 
+## Code Style
+
+### Comments
+
+Prefer minimal, purposeful comments that explain *why* code exists, not *what* it does. Remove overly verbose comments that:
+- Simply restate what the code literally does
+- Describe obvious operations (e.g., "Handle X" section labels)
+- Repeat function or variable names
+- Appear redundantly across multiple locations
+
+Keep comments that:
+- Explain non-obvious logic or design decisions
+- Clarify intent or constraints
+- Add context that isn't visible from reading the code (e.g., explaining domain concepts like "orphan" packages)
+
+Example to avoid:
+```go
+// Clear any previous error
+m.InstallError = ""
+
+// Render header
+header := RenderHeader(...)
+```
+
+Example to keep:
+```go
+// computeOrphans calculates which packages are orphans (dependencies with no dependents)
+func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
+```
+
 ## Development Notes
 
 - Package must run on Arch Linux or compatible system with pacman installed

@@ -7,15 +7,6 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/styles"
 )
 
-// InputMode represents the application's input mode (for status display).
-type InputMode int
-
-const (
-	ModeNormal InputMode = iota
-	ModeCommand
-	ModeFilter
-)
-
 // RenderStatus renders the status/footer bar.
 func RenderStatus(preset string, totalRows, visibleRows, offset int, filter string, width int) string {
 	// Default status line for normal mode
@@ -31,19 +22,21 @@ func RenderStatus(preset string, totalRows, visibleRows, offset int, filter stri
 		status += fmt.Sprintf(" | Filter: \"%s\"", filter)
 	}
 
-	return styles.StatusBar.Width(width).Render(status)
+	return styles.Current.StatusBar.Width(width).Render(status)
 }
 
 // RenderStatusWithBuffer renders the status bar with an input buffer (for command/filter mode).
 func RenderStatusWithBuffer(buffer string, width int) string {
-	return styles.StatusBar.Width(width).Render(buffer)
+	return styles.Current.StatusBar.Width(width).Render(buffer)
 }
 
 // RenderRemoteStatus renders the status bar for remote mode.
-func RenderRemoteStatus(query string, totalRows, visibleRows, offset int, filter string, loading bool, spinner string, errorMsg string, width int) string {
+func RenderRemoteStatus(query string, totalRows, visibleRows, offset int, filter string, loading bool, spinner string, errorMsg string, installing bool, installingPkg string, width int) string {
 	var status string
 
-	if loading {
+	if installing {
+		status = fmt.Sprintf("%s Installing %s...", spinner, installingPkg)
+	} else if loading {
 		status = fmt.Sprintf("%s Searching: %s", spinner, query)
 	} else {
 		start := offset + 1
@@ -74,7 +67,12 @@ func RenderRemoteStatus(query string, totalRows, visibleRows, offset int, filter
 		}
 	}
 
-	return styles.RemoteStatusBar.Width(width).Render(status)
+	return styles.Current.RemoteStatusBar.Width(width).Render(status)
+}
+
+// RenderWarningStatus renders the status bar for warning/destructive actions.
+func RenderWarningStatus(message string, width int) string {
+	return styles.Current.WarningStatusBar.Width(width).Render(message)
 }
 
 func min(a, b int) int {

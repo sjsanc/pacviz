@@ -12,14 +12,15 @@ import (
 // RenderDetailPanel renders the package detail panel.
 // For small screens (width < 120), it's rendered above the status bar as an overlay.
 // For large screens (width >= 120), it's rendered on the right side.
-func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths []int, width int, isSmallScreen bool) string {
+// If isRemote is true, show install commands at the bottom using remote colors.
+func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths []int, width int, isSmallScreen bool, isRemote bool) string {
 	if pkg == nil {
 		return ""
 	}
 
 	// Style for labels (same as index column)
-	labelStyle := styles.Index
-	valueStyle := lipgloss.NewStyle().Foreground(styles.Foreground)
+	labelStyle := styles.Current.Index
+	valueStyle := lipgloss.NewStyle().Foreground(styles.Current.Foreground)
 
 	// Create a temporary row to get formatted cell values
 	row := domain.PackageToRow(pkg, 0)
@@ -40,6 +41,12 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		lines = append(lines, line)
 	}
 
+	// Add install commands at the bottom if in remote mode
+	if isRemote {
+		lines = append(lines, "")
+		lines = append(lines, renderInstallCommands(pkg.Name))
+	}
+
 	content := strings.Join(lines, "\n")
 
 	if isSmallScreen {
@@ -47,7 +54,7 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		// Add border and padding
 		panelStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(styles.Accent1).
+			BorderForeground(styles.Current.Accent1).
 			Padding(0, 1).
 			Width(width - 4)
 
@@ -58,7 +65,7 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 
 		panelStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(styles.Accent1).
+			BorderForeground(styles.Current.Accent1).
 			Padding(0, 1).
 			Width(panelWidth - 4)
 
@@ -98,4 +105,24 @@ func CalculateDetailPanelWidth(width int) int {
 	}
 
 	return panelWidth
+}
+
+// renderInstallCommands renders the install command options using remote colors.
+func renderInstallCommands(pkgName string) string {
+	commandStyle := lipgloss.NewStyle().
+		Foreground(styles.Current.Background).
+		Background(styles.Current.RemoteAccent).
+		Bold(true).
+		Padding(0, 1)
+
+	textStyle := lipgloss.NewStyle().
+		Foreground(styles.Current.RemoteAccent)
+
+	cmd1 := commandStyle.Render("i")
+	cmd2 := commandStyle.Render(":install")
+	cmd3 := commandStyle.Render("Ctrl+I")
+
+	text := textStyle.Render(" to install ") + lipgloss.NewStyle().Bold(true).Foreground(styles.Current.Foreground).Render(pkgName)
+
+	return cmd1 + " " + cmd2 + " " + cmd3 + text
 }

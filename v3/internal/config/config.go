@@ -5,12 +5,13 @@ import (
 )
 
 // Config represents the application configuration.
+// Note: Theme configuration has been moved to internal/ui/styles package.
+// Use styles.Current to access the active theme, and styles.NewStyles() to create themes.
 type Config struct {
 	UI          UIConfig
 	Columns     ColumnConfig
 	Performance PerformanceConfig
 	Keybindings KeybindingsConfig
-	Theme       ThemeConfig
 	Pacman      PacmanConfig
 }
 
@@ -50,21 +51,6 @@ type KeybindingsConfig struct {
 	Command []string
 	Info   []string
 	Help   []string
-}
-
-// ThemeConfig contains theme color settings.
-type ThemeConfig struct {
-	Dark  ThemeColors
-	Light ThemeColors
-}
-
-// ThemeColors defines a color scheme.
-type ThemeColors struct {
-	Accent1    string
-	Accent2    string
-	Background string
-	Foreground string
-	Selected   string
 }
 
 // PacmanConfig contains pacman-specific settings.
@@ -124,15 +110,6 @@ func DefaultConfig() *Config {
 			Command: []string{":"},
 			Info:    []string{"enter", "i"},
 			Help:    []string{"?"},
-		},
-		Theme: ThemeConfig{
-			Dark: ThemeColors{
-				Accent1:    "#7aa2f7",
-				Accent2:    "#bb9af7",
-				Background: "#1a1b26",
-				Foreground: "#c0caf5",
-				Selected:   "#283457",
-			},
 		},
 		Pacman: PacmanConfig{
 			DBPath: "/var/lib/pacman",

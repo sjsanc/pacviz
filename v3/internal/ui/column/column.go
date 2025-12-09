@@ -10,6 +10,7 @@ const (
 	ColVersion     Type = "version"
 	ColSize        Type = "size"
 	ColInstallDate Type = "install_date"
+	ColInstalled   Type = "installed"
 	ColGroups      Type = "groups"
 	ColDescription Type = "description"
 )
@@ -51,6 +52,14 @@ func DefaultColumns() []*Column {
 			Sortable:   false,
 			Searchable: false,
 			Visible:    true,
+		},
+		{
+			Type:       ColInstalled,
+			Name:       "Installed",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 9}, // Fits "Installed" or "Yes"
+			Sortable:   true,
+			Searchable: false,
+			Visible:    false, // Hidden by default, shown only in remote mode
 		},
 		{
 			Type:       ColRepo,

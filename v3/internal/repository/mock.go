@@ -71,13 +71,13 @@ func (m *MockRepository) GetPackage(name string) (*domain.Package, error) {
 }
 
 // Install is a no-op for mock.
-func (m *MockRepository) Install(names []string) error {
-	return nil
+func (m *MockRepository) Install(names []string, password string) (string, error) {
+	return "Package installed successfully", nil
 }
 
 // Remove is a no-op for mock.
-func (m *MockRepository) Remove(names []string, cascade bool) error {
-	return nil
+func (m *MockRepository) Remove(names []string, cascade bool, password string) (string, error) {
+	return "Mock removal output", nil
 }
 
 // Refresh is a no-op for mock.

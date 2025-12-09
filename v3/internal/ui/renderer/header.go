@@ -62,10 +62,10 @@ func RenderHeader(columns []*column.Column, colWidths []int, selectedCol int, so
 		header = strings.Repeat(" ", CellPadding) + header + strings.Repeat(" ", CellPadding)
 
 		// Apply style
-		style := styles.Header
+		style := styles.Current.Header
 		if col.Type == column.ColIndex || col.Type == column.ColRepo {
 			// Index and Repo column headers use dimmed style
-			style = styles.Header.Copy().Foreground(styles.Dimmed)
+			style = styles.Current.Header.Copy().Foreground(styles.Current.Dimmed)
 		}
 		if i == selectedCol {
 			style = style.Background(lipgloss.Color("#3d59a1"))

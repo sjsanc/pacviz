@@ -22,11 +22,11 @@ type Repository interface {
 	// GetPackage retrieves detailed information for a specific package.
 	GetPackage(name string) (*domain.Package, error)
 
-	// Install installs the specified packages.
-	Install(names []string) error
+	// Install installs the specified packages and returns the command output.
+	Install(names []string, password string) (string, error)
 
-	// Remove removes the specified packages.
-	Remove(names []string, cascade bool) error
+	// Remove removes the specified packages and returns the command output.
+	Remove(names []string, cascade bool, password string) (string, error)
 
 	// Refresh refreshes the package database.
 	Refresh() error

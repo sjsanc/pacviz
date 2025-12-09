@@ -1,7 +1,10 @@
 package repository
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/Jguer/go-alpm/v2"
@@ -18,36 +21,30 @@ type AlpmRepository struct {
 
 // NewAlpmRepository creates a new ALPM repository.
 func NewAlpmRepository() (*AlpmRepository, error) {
-	// Load pacman configuration
 	pacmanConf, _, err := pacmanconf.ParseFile("/etc/pacman.conf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pacman.conf: %w", err)
 	}
 
-	// Initialize ALPM handle
 	handle, err := alpm.Initialize(pacmanConf.RootDir, pacmanConf.DBPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ALPM: %w", err)
 	}
 
-	// Get local database
 	localDB, err := handle.LocalDB()
 	if err != nil {
 		handle.Release()
 		return nil, fmt.Errorf("failed to get local database: %w", err)
 	}
 
-	// Register sync databases from pacman.conf
 	for _, repo := range pacmanConf.Repos {
-		// Register each repository as a sync database
-		_, err := handle.RegisterSyncDB(repo.Name, 0) // 0 = no signature check for now
+		_, err := handle.RegisterSyncDB(repo.Name, 0)
 		if err != nil {
 			handle.Release()
 			return nil, fmt.Errorf("failed to register sync database %s: %w", repo.Name, err)
 		}
 	}
 
-	// Get sync databases
 	syncDBs, err := handle.SyncDBs()
 	if err != nil {
 		handle.Release()
@@ -71,10 +68,7 @@ func (r *AlpmRepository) GetInstalled() ([]*domain.Package, error) {
 		return nil
 	})
 
-	// Compute orphan status (packages with no reverse dependencies)
 	r.computeOrphans(result)
-
-	// Compute foreign status (packages not in sync databases)
 	r.computeForeign(result)
 
 	return result, nil
@@ -87,7 +81,6 @@ func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 		installReason = domain.ReasonExplicit
 	}
 
-	// Extract dependency names
 	deps := make([]string, 0)
 	pkg.Depends().ForEach(func(dep *alpm.Depend) error {
 		deps = append(deps, dep.Name)
@@ -114,13 +107,11 @@ func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 
 // computeOrphans calculates which packages are orphans (dependencies with no dependents).
 func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
-	// Build a map of package names to packages
 	pkgMap := make(map[string]*domain.Package)
 	for _, pkg := range packages {
 		pkgMap[pkg.Name] = pkg
 	}
 
-	// Build reverse dependency map
 	reverseDeps := make(map[string][]string)
 	for _, pkg := range packages {
 		for _, dep := range pkg.Dependencies {
@@ -128,7 +119,6 @@ func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 		}
 	}
 
-	// Mark orphans: dependency packages with no reverse dependencies
 	for _, pkg := range packages {
 		if pkg.InstallReason == domain.ReasonDependency {
 			pkg.IsOrphan = len(reverseDeps[pkg.Name]) == 0
@@ -140,7 +130,6 @@ func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 // computeForeign marks packages that are not in any sync database as foreign
 // and populates the repository name for all packages.
 func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
-	// Build a map of package names to their repository
 	pkgToRepo := make(map[string]string)
 	r.syncDBs.ForEach(func(db alpm.IDB) error {
 		repoName := db.Name()
@@ -151,13 +140,11 @@ func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 		return nil
 	})
 
-	// Set repository name and mark foreign packages
 	for _, pkg := range packages {
 		if repo, exists := pkgToRepo[pkg.Name]; exists {
 			pkg.Repository = repo
 			pkg.IsForeign = false
 		} else {
-			// Package not in any sync database
 			pkg.Repository = "foreign"
 			pkg.IsForeign = true
 		}
@@ -186,11 +173,9 @@ func (r *AlpmRepository) GetForeign() ([]*domain.Package, error) {
 func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
 	result := make([]*domain.Package, 0)
 
-	// Search each sync database
 	r.syncDBs.ForEach(func(db alpm.IDB) error {
 		repoName := db.Name()
 		db.PkgCache().ForEach(func(pkg alpm.IPackage) error {
-			// Search in name and description
 			name := pkg.Name()
 			desc := pkg.Description()
 			queryLower := strings.ToLower(query)
@@ -209,14 +194,12 @@ func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
 
 // convertSyncPackage converts an ALPM sync package to our domain package.
 func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) *domain.Package {
-	// Extract dependency names
 	deps := make([]string, 0)
 	pkg.Depends().ForEach(func(dep *alpm.Depend) error {
 		deps = append(deps, dep.Name)
 		return nil
 	})
 
-	// Check if package is installed locally
 	localPkg := r.localDB.Pkg(pkg.Name())
 	installed := localPkg != nil
 
@@ -237,7 +220,6 @@ func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) 
 		IsForeign:     false,
 	}
 
-	// If installed, get install-specific info
 	if localPkg != nil {
 		p.InstallDate = localPkg.InstallDate()
 		if localPkg.Reason() == alpm.PkgReasonExplicit {
@@ -256,20 +238,124 @@ func (r *AlpmRepository) GetPackage(name string) (*domain.Package, error) {
 	return nil, nil
 }
 
-// Install installs packages.
-func (r *AlpmRepository) Install(names []string) error {
-	// TODO: Install via pacman command or ALPM transaction
-	return nil
+// Install installs packages using pacman.
+func (r *AlpmRepository) Install(names []string, password string) (string, error) {
+	if len(names) == 0 {
+		return "", fmt.Errorf("no packages specified for installation")
+	}
+
+	args := []string{"-S", "--noconfirm"}
+	args = append(args, names...)
+
+	// Check if running as root
+	if os.Geteuid() == 0 {
+		// Already root, run pacman directly
+		cmd := exec.Command("pacman", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return string(output), fmt.Errorf("failed to install packages: %w\n%s", err, string(output))
+		}
+		return string(output), nil
+	}
+
+	// Not root, use sudo with password via stdin
+	cmd := exec.Command("sudo", append([]string{"-S", "pacman"}, args...)...)
+
+	// Create a buffer with the password
+	var stdin bytes.Buffer
+	stdin.WriteString(password + "\n")
+	cmd.Stdin = &stdin
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to install packages: %w\n%s", err, string(output))
+	}
+
+	return string(output), nil
 }
 
-// Remove removes packages.
-func (r *AlpmRepository) Remove(names []string, cascade bool) error {
-	// TODO: Remove via pacman command or ALPM transaction
-	return nil
+// Remove removes packages using pacman.
+func (r *AlpmRepository) Remove(names []string, cascade bool, password string) (string, error) {
+	if len(names) == 0 {
+		return "", fmt.Errorf("no packages specified for removal")
+	}
+
+	args := []string{"-R", "--noconfirm"}
+
+	if cascade {
+		args = append(args, "--cascade")
+	}
+
+	args = append(args, names...)
+
+	// Check if running as root
+	if os.Geteuid() == 0 {
+		// Already root, run pacman directly
+		cmd := exec.Command("pacman", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return string(output), fmt.Errorf("failed to remove packages: %w", err)
+		}
+		return string(output), nil
+	}
+
+	// Not root, use sudo with password via stdin
+	cmd := exec.Command("sudo", append([]string{"-S", "pacman"}, args...)...)
+
+	// Create a buffer with the password
+	var stdin bytes.Buffer
+	stdin.WriteString(password + "\n")
+	cmd.Stdin = &stdin
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to remove packages: %w", err)
+	}
+
+	return string(output), nil
 }
 
-// Refresh refreshes the package database.
+// Refresh refreshes the package database by reinitializing the ALPM handle.
 func (r *AlpmRepository) Refresh() error {
-	// TODO: Run pacman -Sy or ALPM sync
+	// Release the current handle
+	if r.handle != nil {
+		r.handle.Release()
+	}
+
+	// Reinitialize
+	pacmanConf, _, err := pacmanconf.ParseFile("/etc/pacman.conf")
+	if err != nil {
+		return fmt.Errorf("failed to parse pacman.conf: %w", err)
+	}
+
+	handle, err := alpm.Initialize(pacmanConf.RootDir, pacmanConf.DBPath)
+	if err != nil {
+		return fmt.Errorf("failed to initialize ALPM: %w", err)
+	}
+
+	localDB, err := handle.LocalDB()
+	if err != nil {
+		handle.Release()
+		return fmt.Errorf("failed to get local database: %w", err)
+	}
+
+	for _, repo := range pacmanConf.Repos {
+		_, err := handle.RegisterSyncDB(repo.Name, 0)
+		if err != nil {
+			handle.Release()
+			return fmt.Errorf("failed to register sync database %s: %w", repo.Name, err)
+		}
+	}
+
+	syncDBs, err := handle.SyncDBs()
+	if err != nil {
+		handle.Release()
+		return fmt.Errorf("failed to get sync databases: %w", err)
+	}
+
+	r.handle = handle
+	r.localDB = localDB
+	r.syncDBs = syncDBs
+
 	return nil
 }

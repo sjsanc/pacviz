@@ -18,7 +18,7 @@ func RenderTable(rows []*domain.Row, columns []*column.Column, colWidths []int, 
 // RenderTableWithMode renders the package table rows with optional remote mode styling.
 func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths []int, selectedRow int, offset int, remoteMode bool) string {
 	if len(rows) == 0 {
-		return styles.Row.Render("No packages to display")
+		return styles.Current.Row.Render("No packages to display")
 	}
 
 	renderedRows := make([]string, 0, len(rows))
@@ -72,56 +72,56 @@ func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths
 			var style lipgloss.Style
 			if col.Type == column.ColIndex {
 				// Index column uses dimmed style (dark-ish foreground)
-				style = styles.Index
+				style = styles.Current.Index
 				if rowIdx == selectedRow {
 					if remoteMode {
-						style = styles.RemoteRowSelected.Foreground(styles.Background)
+						style = styles.Current.RemoteRowSelected.Foreground(styles.Current.Background)
 					} else {
-						style = styles.RowSelected.Foreground(styles.Dimmed)
+						style = styles.Current.RowSelected.Foreground(styles.Current.Dimmed)
 					}
 				} else if rowIdx%2 == 0 {
-					style = styles.Index.Background(styles.Background)
+					style = styles.Current.Index.Background(styles.Current.Background)
 				} else {
-					style = styles.Index.Background(lipgloss.Color("#16161e"))
+					style = styles.Current.Index.Background(styles.Current.BackgroundAlt)
 				}
 			} else if col.Type == column.ColRepo {
 				// Repo column: bright color for foreign packages, dimmed for official repos
 				isForeign := row.Package != nil && row.Package.IsForeign
 				if rowIdx == selectedRow {
 					if remoteMode {
-						style = styles.RemoteRowSelected
+						style = styles.Current.RemoteRowSelected
 					} else if isForeign {
-						style = styles.RowSelected.Foreground(styles.Accent2)
+						style = styles.Current.RowSelected.Foreground(styles.Current.Accent2)
 					} else {
-						style = styles.RowSelected.Foreground(styles.Dimmed)
+						style = styles.Current.RowSelected.Foreground(styles.Current.Dimmed)
 					}
 				} else {
 					if isForeign {
 						// Bright purple/magenta for foreign packages
-						style = styles.Index.Foreground(styles.Accent2)
+						style = styles.Current.Index.Foreground(styles.Current.Accent2)
 					} else {
 						// Dimmed for official repos
-						style = styles.Index
+						style = styles.Current.Index
 					}
 					// Apply background for alternating rows
 					if rowIdx%2 == 0 {
-						style = style.Background(styles.Background)
+						style = style.Background(styles.Current.Background)
 					} else {
-						style = style.Background(lipgloss.Color("#16161e"))
+						style = style.Background(styles.Current.BackgroundAlt)
 					}
 				}
 			} else {
 				// Regular row styling
 				if rowIdx == selectedRow {
 					if remoteMode {
-						style = styles.RemoteRowSelected
+						style = styles.Current.RemoteRowSelected
 					} else {
-						style = styles.RowSelected
+						style = styles.Current.RowSelected
 					}
 				} else if rowIdx%2 == 0 {
-					style = styles.Row
+					style = styles.Current.Row
 				} else {
-					style = styles.RowAlt
+					style = styles.Current.RowAlt
 				}
 			}
 

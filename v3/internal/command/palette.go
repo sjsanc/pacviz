@@ -15,9 +15,11 @@ type CommandDef struct {
 	Description string
 }
 
-// GetAllCommands returns all available commands.
-func GetAllCommands() []CommandDef {
-	return []CommandDef{
+// GetAllCommands returns all available commands, optionally filtered by mode.
+// If isRemoteMode is true, only show commands available in remote mode.
+// If isRemoteMode is false, only show commands available in local mode.
+func GetAllCommands(isRemoteMode bool) []CommandDef {
+	baseCommands := []CommandDef{
 		{
 			Name:        "g",
 			Aliases:     []string{"goto"},
@@ -73,6 +75,24 @@ func GetAllCommands() []CommandDef {
 			Description: "Show help screen",
 		},
 	}
+
+	if isRemoteMode {
+		baseCommands = append(baseCommands, CommandDef{
+			Name:        "i",
+			Aliases:     []string{"install"},
+			Args:        "",
+			Description: "Install selected package",
+		})
+	} else {
+		baseCommands = append(baseCommands, CommandDef{
+			Name:        "r",
+			Aliases:     []string{"remove"},
+			Args:        "",
+			Description: "Remove selected package",
+		})
+	}
+
+	return baseCommands
 }
 
 // FilterCommands filters commands based on the current buffer input.
@@ -105,8 +125,8 @@ func FilterCommands(buffer string, commands []CommandDef) []CommandDef {
 
 // RenderCommandPalette renders the command palette as table-style rows.
 // Returns the rendered palette and the number of rows it occupies.
-func RenderCommandPalette(buffer string, width int) (string, int) {
-	commands := GetAllCommands()
+func RenderCommandPalette(buffer string, width int, isRemoteMode bool) (string, int) {
+	commands := GetAllCommands(isRemoteMode)
 	filtered := FilterCommands(buffer, commands)
 
 	if len(filtered) == 0 {
@@ -121,20 +141,20 @@ func RenderCommandPalette(buffer string, width int) (string, int) {
 
 	// Row style matching table rows
 	rowStyle := lipgloss.NewStyle().
-		Foreground(styles.Foreground).
-		Background(styles.Selected).
+		Foreground(styles.Current.Foreground).
+		Background(styles.Current.Selected).
 		Width(width)
 
 	commandStyle := lipgloss.NewStyle().
-		Foreground(styles.Accent1).
+		Foreground(styles.Current.Accent1).
 		Bold(true)
 
 	argsStyle := lipgloss.NewStyle().
-		Foreground(styles.Accent4).
+		Foreground(styles.Current.Accent4).
 		Italic(true)
 
 	descStyle := lipgloss.NewStyle().
-		Foreground(styles.Dimmed)
+		Foreground(styles.Current.Dimmed)
 
 	// Build command list
 	var lines []string
@@ -151,6 +171,45 @@ func RenderCommandPalette(buffer string, width int) (string, int) {
 		content := "  " + cmdText + argsText + descText
 		line := rowStyle.Render(content)
 		lines = append(lines, line)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...), len(lines)
+}
+
+// RenderOutputPalette renders the output palette showing command output.
+// Returns the rendered palette and the number of rows it occupies.
+func RenderOutputPalette(output string, width int) (string, int) {
+	if output == "" {
+		return "", 0
+	}
+
+	// Split output into lines
+	outputLines := strings.Split(output, "\n")
+
+	// Limit to first 10 lines to avoid taking too much space
+	maxDisplay := 10
+	if len(outputLines) > maxDisplay {
+		outputLines = outputLines[:maxDisplay]
+	}
+
+	// Row style matching command palette
+	rowStyle := lipgloss.NewStyle().
+		Foreground(styles.Current.Foreground).
+		Background(styles.Current.Selected).
+		Width(width)
+
+	// Build output list
+	var lines []string
+	for _, line := range outputLines {
+		if line == "" {
+			continue
+		}
+		content := "  " + line
+		lines = append(lines, rowStyle.Render(content))
+	}
+
+	if len(lines) == 0 {
+		return "", 0
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...), len(lines)

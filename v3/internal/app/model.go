@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,8 +13,8 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/viewport"
 )
 
-// SpinnerFrames contains the ASCII spinner animation frames.
-var SpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+// spinnerFrames contains the ASCII spinner animation frames.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // InputMode represents the current input mode of the application.
 type InputMode int
@@ -22,6 +23,7 @@ const (
 	ModeNormal InputMode = iota
 	ModeCommand
 	ModeFilter
+	ModePassword
 )
 
 // ViewMode represents whether viewing local or remote packages.
@@ -59,6 +61,24 @@ type Model struct {
 	RemoteError   string        // Error message from remote query
 	LocalRows     []*domain.Row // Cached local rows when in remote mode
 	SpinnerFrame  int           // Current spinner animation frame
+
+	// Installation state
+	PendingInstall bool   // Whether a package is pending installation confirmation
+	Installing     bool   // Whether a package is being installed
+	InstallingPkg  string // Name of package pending/being installed
+	InstallError   string // Error message from installation
+	InstallOutput  string // Output from installation operation
+
+	// Removal state
+	PendingRemoval bool   // Whether a package is pending removal confirmation
+	RemovingPkg    string // Name of package pending/being removed
+	Removing       bool   // Whether a package is currently being removed
+	RemoveError    string // Error message from removal
+	RemoveOutput   string // Output from removal operation
+
+	// Password state
+	PasswordBuffer string // Buffer for password input (not displayed)
+	NeedsPassword  bool   // Whether we need to prompt for password
 }
 
 // packagesLoadedMsg is sent when packages are loaded.
@@ -76,6 +96,25 @@ type remoteSearchResultMsg struct {
 
 // spinnerTickMsg is sent to animate the spinner.
 type spinnerTickMsg struct{}
+
+// installCompleteMsg is sent when installation completes.
+type installCompleteMsg struct {
+	pkgName string
+	output  string
+	err     error
+}
+
+// removeCompleteMsg is sent when removal completes.
+type removeCompleteMsg struct {
+	pkgName string
+	output  string
+	err     error
+}
+
+// repositoryRefreshedMsg is sent when repository refresh completes.
+type repositoryRefreshedMsg struct {
+	shouldReload bool
+}
 
 // NewModel creates a new application model.
 func NewModel() Model {
@@ -109,6 +148,17 @@ func (m Model) Init() tea.Cmd {
 func (m Model) loadPackages() tea.Msg {
 	packages, err := m.Repo.GetInstalled()
 	return packagesLoadedMsg{packages: packages, err: err}
+}
+
+// refreshRepository refreshes the package database.
+func (m Model) refreshRepository(shouldReload bool) tea.Cmd {
+	return func() tea.Msg {
+		err := m.Repo.Refresh()
+		if err != nil {
+			log.Printf("Failed to refresh repository: %v", err)
+		}
+		return repositoryRefreshedMsg{shouldReload: shouldReload}
+	}
 }
 
 // Buffer Management Methods
@@ -163,6 +213,35 @@ func (m *Model) GetBufferContent() string {
 	return ""
 }
 
+// EnterPasswordMode switches to password mode.
+func (m *Model) EnterPasswordMode() {
+	m.Mode = ModePassword
+	m.PasswordBuffer = ""
+	m.NeedsPassword = true
+}
+
+// WriteToPasswordBuffer appends a character to the password buffer.
+func (m *Model) WriteToPasswordBuffer(key string) {
+	if key == "backspace" {
+		if len(m.PasswordBuffer) > 0 {
+			m.PasswordBuffer = m.PasswordBuffer[:len(m.PasswordBuffer)-1]
+		}
+		return
+	}
+
+	if key == "enter" {
+		return
+	}
+
+	m.PasswordBuffer += key
+}
+
+// ClearPasswordBuffer resets the password buffer.
+func (m *Model) ClearPasswordBuffer() {
+	m.PasswordBuffer = ""
+	m.NeedsPassword = false
+}
+
 // NextPreset cycles to the next preset, resetting sort and filters.
 func (m *Model) NextPreset() {
 	m.CurrentPreset = (m.CurrentPreset + 1) % len(m.Presets)
@@ -206,11 +285,13 @@ func (m *Model) EnterRemoteMode(query string) tea.Cmd {
 	m.RemoteError = ""
 	m.SpinnerFrame = 0
 
-	// Hide install date column for remote mode
+	// Hide install date column and show installed column for remote mode
 	for _, col := range m.Viewport.Columns {
 		if col.Type == column.ColInstallDate {
 			col.Visible = false
-			break
+		}
+		if col.Type == column.ColInstalled {
+			col.Visible = true
 		}
 	}
 
@@ -228,11 +309,13 @@ func (m *Model) ExitRemoteMode() {
 	m.RemoteLoading = false
 	m.RemoteError = ""
 
-	// Show install date column again
+	// Show install date column and hide installed column again
 	for _, col := range m.Viewport.Columns {
 		if col.Type == column.ColInstallDate {
 			col.Visible = true
-			break
+		}
+		if col.Type == column.ColInstalled {
+			col.Visible = false
 		}
 	}
 
@@ -272,5 +355,86 @@ func tickSpinner() tea.Cmd {
 
 // GetSpinner returns the current spinner frame character.
 func (m Model) GetSpinner() string {
-	return SpinnerFrames[m.SpinnerFrame%len(SpinnerFrames)]
+	return spinnerFrames[m.SpinnerFrame%len(spinnerFrames)]
+}
+
+// InitiateInstall sets up the pending installation state.
+func (m *Model) InitiateInstall(pkgName string) {
+	m.PendingInstall = true
+	m.InstallingPkg = pkgName
+	m.InstallError = ""
+}
+
+// CancelInstall cancels the pending installation.
+func (m *Model) CancelInstall() {
+	m.PendingInstall = false
+	m.InstallingPkg = ""
+}
+
+// InstallPackage starts installation of a package.
+func (m *Model) InstallPackage(pkgName string, password string) tea.Cmd {
+	m.Installing = true
+	m.PendingInstall = false
+	m.InstallingPkg = pkgName
+	m.InstallError = ""
+
+	return tea.Batch(
+		m.doInstall(pkgName, password),
+		tickSpinner(),
+	)
+}
+
+// doInstall performs the package installation.
+func (m Model) doInstall(pkgName string, password string) tea.Cmd {
+	return func() tea.Msg {
+		output, err := m.Repo.Install([]string{pkgName}, password)
+		return installCompleteMsg{
+			pkgName: pkgName,
+			output:  output,
+			err:     err,
+		}
+	}
+}
+
+// InitiateRemoval sets up the pending removal state.
+func (m *Model) InitiateRemoval(pkgName string) {
+	m.PendingRemoval = true
+	m.RemovingPkg = pkgName
+	m.RemoveError = ""
+}
+
+// IsRunningAsRoot checks if the program is running with root privileges.
+func IsRunningAsRoot() bool {
+	return os.Geteuid() == 0
+}
+
+// CancelRemoval cancels the pending removal.
+func (m *Model) CancelRemoval() {
+	m.PendingRemoval = false
+	m.RemovingPkg = ""
+}
+
+// RemovePackage starts removal of a package.
+func (m *Model) RemovePackage(pkgName string, password string) tea.Cmd {
+	m.Removing = true
+	m.PendingRemoval = false
+	m.RemovingPkg = pkgName
+	m.RemoveError = ""
+
+	return tea.Batch(
+		m.doRemove(pkgName, password),
+		tickSpinner(),
+	)
+}
+
+// doRemove performs the package removal.
+func (m Model) doRemove(pkgName string, password string) tea.Cmd {
+	return func() tea.Msg {
+		output, err := m.Repo.Remove([]string{pkgName}, false, password)
+		return removeCompleteMsg{
+			pkgName: pkgName,
+			output:  output,
+			err:     err,
+		}
+	}
 }
