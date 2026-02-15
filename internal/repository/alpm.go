@@ -132,10 +132,12 @@ func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 // and populates the repository name for all packages.
 func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 	pkgToRepo := make(map[string]string)
+	pkgToVersion := make(map[string]string)
 	r.syncDBs.ForEach(func(db alpm.IDB) error {
 		repoName := db.Name()
 		db.PkgCache().ForEach(func(pkg alpm.IPackage) error {
 			pkgToRepo[pkg.Name()] = repoName
+			pkgToVersion[pkg.Name()] = pkg.Version()
 			return nil
 		})
 		return nil
@@ -145,6 +147,13 @@ func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 		if repo, exists := pkgToRepo[pkg.Name]; exists {
 			pkg.Repository = repo
 			pkg.IsForeign = false
+
+			if syncVersion, ok := pkgToVersion[pkg.Name]; ok {
+				if alpm.VerCmp(syncVersion, pkg.Version) > 0 {
+					pkg.HasUpdate = true
+					pkg.NewVersion = syncVersion
+				}
+			}
 		} else {
 			pkg.Repository = "foreign"
 			pkg.IsForeign = true

@@ -9,6 +9,7 @@ const (
 	PresetOrphans    PresetType = "orphans"
 	PresetForeign    PresetType = "foreign"
 	PresetAUR        PresetType = "aur"
+	PresetUpdatable  PresetType = "updatable"
 	PresetAll        PresetType = "all"
 )
 
@@ -61,6 +62,14 @@ func DefaultPresets() []Preset {
 			Description: "AUR and foreign packages",
 			Filter: func(p *Package) bool {
 				return p.IsForeign
+			},
+		},
+		{
+			Type:        PresetUpdatable,
+			Name:        "Updatable",
+			Description: "Packages with available updates",
+			Filter: func(p *Package) bool {
+				return p.HasUpdate
 			},
 		},
 		{

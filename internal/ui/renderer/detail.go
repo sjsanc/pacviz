@@ -17,7 +17,7 @@ type detailField struct {
 
 var detailPanelFields = []detailField{
 	{label: "Name", colType: column.ColName},
-	{label: "Version", colType: column.ColVersion},
+	{label: "Installed Version", colType: column.ColVersion},
 	{label: "Repository", colType: column.ColRepo},
 	{label: "Architecture", colType: column.ColArchitecture},
 	{label: "Installed", colType: column.ColInstalled},
@@ -25,8 +25,7 @@ var detailPanelFields = []detailField{
 	{label: "Install Reason", colType: column.ColInstallReason},
 	{label: "Is Orphan", colType: column.ColIsOrphan},
 	{label: "Is Foreign", colType: column.ColIsForeign},
-	{label: "Has Update", colType: column.ColHasUpdate},
-	{label: "New Version", colType: column.ColNewVersion},
+	{label: "Latest Version", colType: column.ColNewVersion},
 	{label: "Description", colType: column.ColDescription},
 	{label: "URL", colType: column.ColURL},
 	{label: "Packager", colType: column.ColPackager},
@@ -66,8 +65,7 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		value := row.Cells[field.colType]
 
 		// Skip empty values for non-essential fields
-		if value == "" && field.colType != column.ColHasUpdate &&
-			field.colType != column.ColIsOrphan && field.colType != column.ColIsForeign {
+		if value == "" && field.colType != column.ColIsOrphan && field.colType != column.ColIsForeign {
 			continue
 		}
 

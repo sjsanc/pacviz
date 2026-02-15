@@ -209,6 +209,10 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 		// Otherwise toggle detail panel
 		m.ShowDetailPanel = !m.ShowDetailPanel
 	case "esc":
+		if m.ShowDetailPanel {
+			m.ShowDetailPanel = false
+			return m, nil
+		}
 		if m.RemoveOutput != "" {
 			m.RemoveOutput = ""
 			return m, nil

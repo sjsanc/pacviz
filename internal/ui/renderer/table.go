@@ -46,6 +46,15 @@ func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths
 				contentWidth = 1
 			}
 
+				// Display star for update column
+			if col.Type == column.ColHasUpdate {
+				if content == "Yes" {
+					content = "★"
+				} else {
+					content = ""
+				}
+			}
+
 			// Handle text alignment
 			if col.Type == column.ColIndex {
 				// Right-align for index column
@@ -70,7 +79,8 @@ func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths
 
 			// Choose style
 			var style lipgloss.Style
-			if col.Type == column.ColIndex {
+			switch col.Type {
+			case column.ColIndex:
 				// Index column uses dimmed style (dark-ish foreground)
 				style = styles.Current.Index
 				if rowIdx == selectedRow {
@@ -84,7 +94,7 @@ func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths
 				} else {
 					style = styles.Current.Index.Background(styles.Current.BackgroundAlt)
 				}
-			} else if col.Type == column.ColRepo {
+			case column.ColRepo:
 				// Repo column: bright color for foreign packages, dimmed for official repos
 				isForeign := row.Package != nil && row.Package.IsForeign
 				if rowIdx == selectedRow {
@@ -110,7 +120,26 @@ func RenderTableWithMode(rows []*domain.Row, columns []*column.Column, colWidths
 						style = style.Background(styles.Current.BackgroundAlt)
 					}
 				}
-			} else {
+			case column.ColHasUpdate:
+				if rowIdx == selectedRow {
+					if remoteMode {
+						style = styles.Current.RemoteRowSelected
+					} else {
+						style = styles.Current.RowSelected.Foreground(styles.Current.Accent3)
+					}
+				} else {
+					if content == "Yes" {
+						style = lipgloss.NewStyle().Foreground(styles.Current.Accent3)
+					} else {
+						style = styles.Current.Index
+					}
+					if rowIdx%2 == 0 {
+						style = style.Background(styles.Current.Background)
+					} else {
+						style = style.Background(styles.Current.BackgroundAlt)
+					}
+				}
+			default:
 				// Regular row styling
 				if rowIdx == selectedRow {
 					if remoteMode {

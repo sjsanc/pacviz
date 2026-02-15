@@ -44,10 +44,10 @@ const (
 
 // ColumnWidth defines width calculation parameters.
 type ColumnWidth struct {
-	Type    WidthType
-	Min     int
-	Max     int
-	Size    int // pixels or percent
+	Type WidthType
+	Min  int
+	Max  int
+	Size int // pixels or percent
 }
 
 // Column represents a table column configuration.
@@ -99,6 +99,14 @@ func DefaultColumns() []*Column {
 			Type:       ColVersion,
 			Name:       "Version",
 			Width:      ColumnWidth{Type: WidthFixed, Size: 15}, // Fits versions like "20250814.1-1"
+			Sortable:   true,
+			Searchable: false,
+			Visible:    true,
+		},
+		{
+			Type:       ColHasUpdate,
+			Name:       "Upd",
+			Width:      ColumnWidth{Type: WidthFixed, Size: 5},
 			Sortable:   true,
 			Searchable: false,
 			Visible:    true,
