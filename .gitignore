@@ -1,6 +1,10 @@
-NOTES.md
-TODO.md
-CLAUDE.md
-TECH_DEBT.md
 .claude
 pacviz
+!README.md
+*.md
+.claude
+pacviz
+src/
+pkg/
+*.tar.gz
+*.tar.zst
