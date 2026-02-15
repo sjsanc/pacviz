@@ -16,6 +16,18 @@ A terminal user interface for managing Arch Linux packages.
 
 ## Installation
 
+```bash
+yay -S pacviz
+```
+
+```bash
+git clone https://aur.archlinux.org/pacviz.git
+cd pacviz
+makepkg -si
+```
+
+## Usage
+
 ### Keybindings
 
 | Key | Action |
@@ -97,13 +109,6 @@ go build -o pacviz ./cmd/pacviz
 
 - Arch Linux (uses libalpm)
 - Go 1.21+
-
-## Usage
-
-```bash
-pacviz
-pacviz -c path/to/config.toml
-```
 
 ## Contributing
 
