@@ -12,6 +12,15 @@ type Config struct {
 	Performance PerformanceConfig
 	Keybindings KeybindingsConfig
 	Pacman      PacmanConfig
+	AUR         AURConfig
+}
+
+// AURConfig contains AUR-related settings.
+type AURConfig struct {
+	Helper   string // Explicit helper name ("yay", "paru"). Empty = auto-detect
+	Disabled bool   // Disable all AUR features
+	Timeout  int    // HTTP timeout seconds (default 5)
+	CacheTTL int    // Cache TTL seconds (default 300)
 }
 
 // ColumnConfig contains column display settings.
@@ -98,6 +107,10 @@ func DefaultConfig() *Config {
 		},
 		Pacman: PacmanConfig{
 			DBPath: "/var/lib/pacman",
+		},
+		AUR: AURConfig{
+			Timeout:  5,
+			CacheTTL: 300,
 		},
 	}
 }

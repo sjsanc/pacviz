@@ -24,8 +24,7 @@ func main() {
 	}
 
 	// Create model with loaded config
-	model := app.NewModel()
-	_ = cfg // Config is used via styles.Current which is set by config loader
+	model := app.NewModel(cfg)
 
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 

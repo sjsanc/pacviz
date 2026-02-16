@@ -80,10 +80,11 @@ func (m Model) View() string {
 		// Check for warning states first
 		if m.PendingInstall {
 			// Show warning status for pending installation
-			statusBar = renderer.RenderWarningStatus(
-				fmt.Sprintf("⚠ Press Enter to install %s or Esc to cancel", m.InstallingPkg),
-				width,
-			)
+			installMsg := fmt.Sprintf("⚠ Press Enter to install %s or Esc to cancel", m.InstallingPkg)
+			if m.isSelectedPackageAUR() && m.AURHelper != nil {
+				installMsg = fmt.Sprintf("⚠ Press Enter to install %s via %s or Esc to cancel", m.InstallingPkg, m.AURHelper.Name)
+			}
+			statusBar = renderer.RenderWarningStatus(installMsg, width)
 		} else if m.PendingRemoval {
 			// Show warning status for pending removal
 			statusBar = renderer.RenderWarningStatus(

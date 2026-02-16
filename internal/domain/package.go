@@ -39,6 +39,7 @@ type Package struct {
 	Repository      string   // repository name (e.g., "core", "extra", "AUR", "foreign")
 	IsOrphan        bool
 	IsForeign       bool
+	IsAUR           bool
 	HasUpdate       bool
 	NewVersion      string
 }

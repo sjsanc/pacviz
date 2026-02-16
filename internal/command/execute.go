@@ -99,7 +99,7 @@ func executePreset(args []string) ExecuteResult {
 	if len(args) == 0 {
 		return ExecuteResult{
 			GoToLine: -1,
-			Error:    "Usage: :p <preset> (explicit, dependency, orphans, foreign, all)",
+			Error:    "Usage: :p <preset> (explicit, dependency, orphans, foreign, aur, updatable, all)",
 		}
 	}
 
@@ -110,13 +110,15 @@ func executePreset(args []string) ExecuteResult {
 		"dependency": true,
 		"orphans":    true,
 		"foreign":    true,
+		"aur":        true,
+		"updatable":  true,
 		"all":        true,
 	}
 
 	if !validPresets[preset] {
 		return ExecuteResult{
 			GoToLine: -1,
-			Error:    "Invalid preset: " + preset + " (valid: explicit, dependency, orphans, foreign, all)",
+			Error:    "Invalid preset: " + preset + " (valid: explicit, dependency, orphans, foreign, aur, updatable, all)",
 		}
 	}
 

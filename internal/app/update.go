@@ -16,6 +16,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePackagesLoaded(msg)
 	case remoteSearchResultMsg:
 		return m.handleRemoteSearchResult(msg)
+	case aurSearchResultMsg:
+		return m.handleAURSearchResult(msg)
+	case aurInfoResultMsg:
+		return m.handleAURInfoResult(msg)
+	case aurInstallCompleteMsg:
+		return m.handleAURInstallComplete(msg)
 	case repositoryRefreshedMsg:
 		return m.handleRepositoryRefreshed(msg)
 	case spinnerTickMsg:
@@ -44,10 +50,30 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 	}
 
 	rows := domain.PackagesToRows(msg.packages)
+
+	// If in remote mode, update the cached local rows instead of replacing
+	// the viewport (which holds search results)
+	if m.ViewMode == ViewRemote {
+		m.LocalRows = rows
+		m.Ready = true
+
+		// Re-run the search so install status refreshes in search results
+		var cmds []tea.Cmd
+		cmds = append(cmds, m.doRemoteSearch(m.RemoteQuery))
+		if m.AUREnabled {
+			cmds = append(cmds, m.doAURSearch(m.RemoteQuery))
+		}
+		m.syncSearchDone = false
+		m.aurSearchDone = false
+		m.syncSearchResult = nil
+		m.aurSearchResult = nil
+		return m, tea.Batch(cmds...)
+	}
+
 	m.Viewport.SetRows(rows)
 	m.Ready = true
 
-	m.applyCurrentPreset()
+	presetCmd := m.applyCurrentPreset()
 
 	// Ensure SelectedRow is within valid bounds after data reload
 	if m.Viewport.SelectedRow >= len(m.Viewport.VisibleRows) {
@@ -61,28 +87,145 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 		m.Viewport.SelectedRow = 0
 	}
 
+	// After loading packages, look up which foreign packages are AUR packages
+	// so the Repo column shows "aur" instead of "foreign"
+	var cmds []tea.Cmd
+	if presetCmd != nil {
+		cmds = append(cmds, presetCmd)
+	}
+	if m.AUREnabled && m.AURClient != nil {
+		cmds = append(cmds, m.doAURInfoLookup())
+	}
+
+	if len(cmds) > 0 {
+		return m, tea.Batch(cmds...)
+	}
 	return m, nil
 }
 
 func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, tea.Cmd) {
-	m.RemoteLoading = false
-
 	if msg.err != nil {
-		m.RemoteError = msg.err.Error()
-		return m, nil
+		// Store error but don't fail — AUR results may still come
+		m.syncSearchResult = nil
+	} else {
+		m.syncSearchResult = msg.packages
+	}
+	m.syncSearchDone = true
+
+	// If AUR is not enabled or AUR is also done, finalize
+	if !m.AUREnabled || m.aurSearchDone {
+		return m.finalizeSearchResults(msg.query, msg.err)
 	}
 
-	if len(msg.packages) == 0 {
-		m.RemoteError = "No packages found for: " + msg.query
+	return m, nil
+}
+
+func (m Model) handleAURSearchResult(msg aurSearchResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		// AUR search failed — proceed with sync-only results
+		m.aurSearchResult = nil
+	} else {
+		m.aurSearchResult = msg.packages
+	}
+	m.aurSearchDone = true
+
+	// If sync is also done, finalize
+	if m.syncSearchDone {
+		// Use the sync error if sync failed; AUR failure is graceful
+		var syncErr error
+		if m.syncSearchResult == nil && m.syncSearchDone {
+			// Check if sync had an error — we need to pass it through
+			// If syncSearchResult is nil, it means sync either errored or returned 0 results
+		}
+		return m.finalizeSearchResults(msg.query, syncErr)
+	}
+
+	return m, nil
+}
+
+func (m Model) finalizeSearchResults(query string, syncErr error) (tea.Model, tea.Cmd) {
+	m.RemoteLoading = false
+
+	// Merge results
+	syncPkgs := m.syncSearchResult
+	aurPkgs := m.aurSearchResult
+
+	var merged []*domain.Package
+	if len(syncPkgs) > 0 && len(aurPkgs) > 0 {
+		merged = mergeSearchResults(syncPkgs, aurPkgs)
+	} else if len(syncPkgs) > 0 {
+		merged = syncPkgs
+	} else if len(aurPkgs) > 0 {
+		merged = aurPkgs
+	}
+
+	if len(merged) == 0 {
+		if syncErr != nil {
+			m.RemoteError = syncErr.Error()
+		} else {
+			m.RemoteError = "No packages found for: " + query
+		}
 		return m, nil
 	}
 
 	m.RemoteError = ""
-	rows := domain.PackagesToRows(msg.packages)
+	rows := domain.PackagesToRows(merged)
 	m.Viewport.SetRows(rows)
 	m.Viewport.ScrollToTop()
 
 	return m, nil
+}
+
+func (m Model) handleAURInfoResult(msg aurInfoResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		// Silently ignore — packages stay as foreign
+		return m, nil
+	}
+
+	// Set IsAUR on matching packages
+	for _, row := range m.Viewport.AllRows {
+		if row.Package != nil && msg.found[row.Package.Name] {
+			row.Package.IsAUR = true
+			row.Package.Repository = "aur"
+			row.Cells[column.ColRepo] = "aur"
+		}
+	}
+
+	// Re-apply current preset filter to update visible rows
+	// No need to propagate cmd here — we just finished the AUR info lookup
+	_ = m.applyCurrentPreset()
+
+	return m, nil
+}
+
+func (m Model) handleAURInstallComplete(msg aurInstallCompleteMsg) (tea.Model, tea.Cmd) {
+	m.Installing = false
+	m.InstallingPkg = ""
+
+	m.InstallError = ""
+	if msg.err != nil {
+		m.InstallError = msg.err.Error()
+		m.InstallOutput = "AUR installation failed"
+	} else {
+		m.InstallOutput = "AUR package installed successfully"
+	}
+
+	// Refresh repository, then reload packages
+	cmds := []tea.Cmd{m.refreshRepository(true)}
+
+	// If in search mode, re-run the search so install status updates
+	if m.ViewMode == ViewRemote && m.RemoteQuery != "" {
+		cmds = append(cmds, m.doRemoteSearch(m.RemoteQuery))
+		if m.AUREnabled {
+			cmds = append(cmds, m.doAURSearch(m.RemoteQuery))
+		}
+		m.syncSearchDone = false
+		m.aurSearchDone = false
+		m.syncSearchResult = nil
+		m.aurSearchResult = nil
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) handleRepositoryRefreshed(msg repositoryRefreshedMsg) (tea.Model, tea.Cmd) {
@@ -154,6 +297,15 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	if m.PendingInstall {
 		switch key {
 		case "enter":
+			pkgName := m.InstallingPkg
+
+			// Check if this is an AUR package
+			if m.isSelectedPackageAUR() {
+				m.PendingInstall = false
+				m.Installing = true
+				return m, m.doAURInstall(pkgName)
+			}
+
 			// Check if we need a password
 			if !IsRunningAsRoot() {
 				// Prompt for password
@@ -161,7 +313,6 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// Already root, proceed with installation
-			pkgName := m.InstallingPkg
 			return m, m.InstallPackage(pkgName, "")
 		case "esc", "ctrl+c":
 			m.CancelInstall()
@@ -255,7 +406,8 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	case " ", "space":
 		m.Viewport.ToggleSortCurrentColumn()
 	case "tab":
-		m.NextPreset()
+		cmd := m.NextPreset()
+		return m, cmd
 	case "i":
 		if m.ViewMode == ViewRemote && m.ShowDetailPanel && m.Viewport.SelectedRow >= 0 && m.Viewport.SelectedRow < len(m.Viewport.VisibleRows) {
 			// In detail view in remote mode, pressing 'i' initiates install
@@ -364,8 +516,11 @@ func (m Model) handleCommandResult(msg commandResultMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if result.PresetChange != "" {
-		if !m.SetPreset(result.PresetChange) {
+		ok, cmd := m.SetPreset(result.PresetChange)
+		if !ok {
 			m.RemoteError = "Invalid preset"
+		} else if cmd != nil {
+			return m, cmd
 		}
 	}
 

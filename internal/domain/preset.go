@@ -51,17 +51,17 @@ func DefaultPresets() []Preset {
 		{
 			Type:        PresetForeign,
 			Name:        "Foreign",
-			Description: "Packages not in sync databases",
+			Description: "Non-repo, non-AUR packages",
 			Filter: func(p *Package) bool {
-				return p.IsForeign
+				return p.IsForeign && !p.IsAUR
 			},
 		},
 		{
 			Type:        PresetAUR,
 			Name:        "AUR",
-			Description: "AUR and foreign packages",
+			Description: "AUR packages",
 			Filter: func(p *Package) bool {
-				return p.IsForeign
+				return p.IsAUR
 			},
 		},
 		{

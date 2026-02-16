@@ -7,7 +7,9 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sjsanc/pacviz/v3/internal/aur"
 	"github.com/sjsanc/pacviz/v3/internal/command"
+	"github.com/sjsanc/pacviz/v3/internal/config"
 	"github.com/sjsanc/pacviz/v3/internal/domain"
 	"github.com/sjsanc/pacviz/v3/internal/repository"
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
@@ -80,6 +82,15 @@ type Model struct {
 	// Password state
 	PasswordBuffer string // Buffer for password input (not displayed)
 	NeedsPassword  bool   // Whether we need to prompt for password
+
+	// AUR state
+	AURClient        *aur.Client
+	AURHelper        *aur.HelperConfig
+	AUREnabled       bool
+	syncSearchResult []*domain.Package
+	syncSearchDone   bool
+	aurSearchResult  []*domain.Package
+	aurSearchDone    bool
 }
 
 // packagesLoadedMsg is sent when packages are loaded.
@@ -117,6 +128,24 @@ type repositoryRefreshedMsg struct {
 	shouldReload bool
 }
 
+// aurSearchResultMsg is sent when an AUR search completes.
+type aurSearchResultMsg struct {
+	packages []*domain.Package
+	query    string
+	err      error
+}
+
+// aurInfoResultMsg is sent when an AUR info lookup completes.
+type aurInfoResultMsg struct {
+	found map[string]bool
+	err   error
+}
+
+// aurInstallCompleteMsg is sent when an AUR installation completes.
+type aurInstallCompleteMsg struct {
+	err error
+}
+
 // commandResultMsg is sent when a command needs to affect the model.
 type commandResultMsg struct {
 	Result command.ExecuteResult
@@ -131,7 +160,7 @@ func executeCommandMsg(commandStr string) tea.Cmd {
 }
 
 // NewModel creates a new application model.
-func NewModel() *Model {
+func NewModel(cfg *config.Config) *Model {
 	repo, err := repository.NewAlpmRepository()
 	if err != nil {
 		log.Printf("Failed to initialize repository: %v", err)
@@ -144,13 +173,24 @@ func NewModel() *Model {
 		}
 	}
 
-	return &Model{
+	m := &Model{
 		Viewport:      viewport.New(),
 		Repo:          repo,
 		Ready:         false,
 		Presets:       domain.DefaultPresets(),
 		CurrentPreset: 0,
 	}
+
+	// Initialize AUR features
+	if !cfg.AUR.Disabled {
+		timeout := time.Duration(cfg.AUR.Timeout) * time.Second
+		cacheTTL := time.Duration(cfg.AUR.CacheTTL) * time.Second
+		m.AURClient = aur.NewClient(timeout, cacheTTL)
+		m.AURHelper = aur.DetectHelper(cfg.AUR.Helper)
+		m.AUREnabled = true
+	}
+
+	return m
 }
 
 // Init initializes the model (Bubble Tea interface).
@@ -257,25 +297,26 @@ func (m *Model) ClearPasswordBuffer() {
 }
 
 // NextPreset cycles to the next preset, resetting sort and filters.
-func (m *Model) NextPreset() {
+func (m *Model) NextPreset() tea.Cmd {
 	m.CurrentPreset = (m.CurrentPreset + 1) % len(m.Presets)
-	m.applyCurrentPreset()
+	return m.applyCurrentPreset()
 }
 
 // SetPreset sets a specific preset by name.
-func (m *Model) SetPreset(presetName string) bool {
+func (m *Model) SetPreset(presetName string) (bool, tea.Cmd) {
 	for i, preset := range m.Presets {
 		if string(preset.Type) == presetName {
 			m.CurrentPreset = i
-			m.applyCurrentPreset()
-			return true
+			cmd := m.applyCurrentPreset()
+			return true, cmd
 		}
 	}
-	return false
+	return false, nil
 }
 
 // applyCurrentPreset applies the current preset filter and resets sort/filters.
-func (m *Model) applyCurrentPreset() {
+// Returns a tea.Cmd if an async operation (like AUR info lookup) is needed.
+func (m *Model) applyCurrentPreset() tea.Cmd {
 	// Reset sort to default (Name, ascending)
 	m.Viewport.SortColumn = column.ColName
 	m.Viewport.SortReverse = false
@@ -286,6 +327,13 @@ func (m *Model) applyCurrentPreset() {
 	// Apply preset filter
 	preset := m.Presets[m.CurrentPreset]
 	m.Viewport.ApplyPresetFilter(preset.Filter)
+
+	// If switching to AUR preset and AUR is enabled, do a lazy Info() lookup
+	if preset.Type == domain.PresetAUR && m.AUREnabled && m.AURClient != nil {
+		return m.doAURInfoLookup()
+	}
+
+	return nil
 }
 
 // EnterRemoteMode starts a remote search.
@@ -299,6 +347,12 @@ func (m *Model) EnterRemoteMode(query string) tea.Cmd {
 	m.RemoteError = ""
 	m.SpinnerFrame = 0
 
+	// Reset search buffering state
+	m.syncSearchResult = nil
+	m.syncSearchDone = false
+	m.aurSearchResult = nil
+	m.aurSearchDone = false
+
 	// Hide install date column and show installed column for remote mode
 	for _, col := range m.Viewport.Columns {
 		if col.Type == column.ColInstallDate {
@@ -309,11 +363,18 @@ func (m *Model) EnterRemoteMode(query string) tea.Cmd {
 		}
 	}
 
-	// Start spinner and search concurrently
-	return tea.Batch(
+	// Start spinner and searches concurrently
+	cmds := []tea.Cmd{
 		m.doRemoteSearch(query),
 		tickSpinner(),
-	)
+	}
+
+	// Also search AUR if enabled
+	if m.AUREnabled {
+		cmds = append(cmds, m.doAURSearch(query))
+	}
+
+	return tea.Batch(cmds...)
 }
 
 // ExitRemoteMode returns to local mode and restores state.
@@ -345,7 +406,7 @@ func (m *Model) ExitRemoteMode() {
 	m.Viewport.ClearFilter()
 	m.Viewport.ScrollToTop()
 	m.CurrentPreset = 0
-	m.applyCurrentPreset()
+	_ = m.applyCurrentPreset() // Preset 0 (explicit) never needs async lookup
 }
 
 // doRemoteSearch performs the remote search query.
@@ -357,6 +418,57 @@ func (m Model) doRemoteSearch(query string) tea.Cmd {
 			query:    query,
 			err:      err,
 		}
+	}
+}
+
+// doAURSearch performs an AUR search query.
+func (m Model) doAURSearch(query string) tea.Cmd {
+	return func() tea.Msg {
+		packages, err := m.AURClient.Search(query)
+		return aurSearchResultMsg{
+			packages: packages,
+			query:    query,
+			err:      err,
+		}
+	}
+}
+
+// mergeSearchResults merges sync and AUR results. Sync wins on name collision.
+func mergeSearchResults(syncPkgs, aurPkgs []*domain.Package) []*domain.Package {
+	seen := make(map[string]bool, len(syncPkgs))
+	for _, pkg := range syncPkgs {
+		seen[pkg.Name] = true
+	}
+
+	merged := make([]*domain.Package, len(syncPkgs))
+	copy(merged, syncPkgs)
+
+	for _, pkg := range aurPkgs {
+		if !seen[pkg.Name] {
+			merged = append(merged, pkg)
+		}
+	}
+
+	return merged
+}
+
+// doAURInfoLookup performs an AUR info lookup for foreign packages.
+func (m Model) doAURInfoLookup() tea.Cmd {
+	return func() tea.Msg {
+		// Collect foreign package names
+		var foreignNames []string
+		for _, row := range m.Viewport.AllRows {
+			if row.Package != nil && row.Package.IsForeign {
+				foreignNames = append(foreignNames, row.Package.Name)
+			}
+		}
+
+		if len(foreignNames) == 0 {
+			return aurInfoResultMsg{found: map[string]bool{}}
+		}
+
+		found, err := m.AURClient.Info(foreignNames)
+		return aurInfoResultMsg{found: found, err: err}
 	}
 }
 
@@ -417,6 +529,15 @@ func (m *Model) InitiateRemoval(pkgName string) {
 	m.RemoveError = ""
 }
 
+// isSelectedPackageAUR checks if the currently selected package is from the AUR.
+func (m Model) isSelectedPackageAUR() bool {
+	if m.Viewport.SelectedRow < 0 || m.Viewport.SelectedRow >= len(m.Viewport.VisibleRows) {
+		return false
+	}
+	row := m.Viewport.VisibleRows[m.Viewport.SelectedRow]
+	return row.Package != nil && row.Package.IsAUR
+}
+
 // IsRunningAsRoot checks if the program is running with root privileges.
 func IsRunningAsRoot() bool {
 	return os.Geteuid() == 0
@@ -439,6 +560,20 @@ func (m *Model) RemovePackage(pkgName string, password string) tea.Cmd {
 		m.doRemove(pkgName, password),
 		tickSpinner(),
 	)
+}
+
+// doAURInstall suspends the TUI and runs the AUR helper interactively.
+func (m Model) doAURInstall(pkgName string) tea.Cmd {
+	if m.AURHelper == nil {
+		return func() tea.Msg {
+			return aurInstallCompleteMsg{err: fmt.Errorf("no AUR helper found (install yay, paru, pikaur, or trizen)")}
+		}
+	}
+
+	cmd := aur.InstallCmd(m.AURHelper, []string{pkgName})
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return aurInstallCompleteMsg{err: err}
+	})
 }
 
 // doRemove performs the package removal.

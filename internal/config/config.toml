@@ -28,3 +28,6 @@ selected_theme = "gruvbox"
 # accent1 = "#7aa2f7"
 # accent2 = "#bb9af7"
 # ...
+
+[aur]
+helper = "paru"

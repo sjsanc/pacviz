@@ -29,7 +29,13 @@ func Load(path string, optional bool) (*Config, error) {
 	// Parse TOML file
 	tomlConfig := struct {
 		SelectedTheme string `toml:"selected_theme"` // Theme name to load
-		Theme         struct {
+		AUR           struct {
+			Helper   string `toml:"helper"`
+			Disabled bool   `toml:"disabled"`
+			Timeout  int    `toml:"timeout"`
+			CacheTTL int    `toml:"cache_ttl"`
+		} `toml:"aur"`
+		Theme struct {
 			// Nested overrides (new format)
 			Overrides struct {
 				Accent1       string `toml:"accent1"`
@@ -65,6 +71,20 @@ func Load(path string, optional bool) (*Config, error) {
 	_, err := toml.DecodeFile(path, &tomlConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Apply AUR config overrides
+	if tomlConfig.AUR.Helper != "" {
+		config.AUR.Helper = tomlConfig.AUR.Helper
+	}
+	if tomlConfig.AUR.Disabled {
+		config.AUR.Disabled = true
+	}
+	if tomlConfig.AUR.Timeout > 0 {
+		config.AUR.Timeout = tomlConfig.AUR.Timeout
+	}
+	if tomlConfig.AUR.CacheTTL > 0 {
+		config.AUR.CacheTTL = tomlConfig.AUR.CacheTTL
 	}
 
 	// Load base theme by name (defaults to "default" if not specified)

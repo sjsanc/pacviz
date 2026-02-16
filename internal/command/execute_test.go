@@ -94,16 +94,28 @@ func TestExecute_Preset(t *testing.T) {
 			expectedError:  "",
 		},
 		{
+			name:           "preset aur",
+			commandStr:     "p aur",
+			expectedPreset: "aur",
+			expectedError:  "",
+		},
+		{
+			name:           "preset updatable",
+			commandStr:     "p updatable",
+			expectedPreset: "updatable",
+			expectedError:  "",
+		},
+		{
 			name:           "preset without args",
 			commandStr:     "p",
 			expectedPreset: "",
-			expectedError:  "Usage: :p <preset> (explicit, dependency, orphans, foreign, all)",
+			expectedError:  "Usage: :p <preset> (explicit, dependency, orphans, foreign, aur, updatable, all)",
 		},
 		{
 			name:           "preset with invalid name",
 			commandStr:     "p invalid",
 			expectedPreset: "",
-			expectedError:  "Invalid preset: invalid (valid: explicit, dependency, orphans, foreign, all)",
+			expectedError:  "Invalid preset: invalid (valid: explicit, dependency, orphans, foreign, aur, updatable, all)",
 		},
 	}
 
