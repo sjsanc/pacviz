@@ -64,7 +64,6 @@ type Client struct {
 	mu         sync.RWMutex
 }
 
-// NewClient creates a new AUR RPC client.
 func NewClient(timeout time.Duration, cacheTTL time.Duration) *Client {
 	if timeout == 0 {
 		timeout = defaultTimeout
@@ -79,7 +78,6 @@ func NewClient(timeout time.Duration, cacheTTL time.Duration) *Client {
 	}
 }
 
-// Search queries the AUR for packages matching the given query.
 func (c *Client) Search(query string) ([]*domain.Package, error) {
 	cacheKey := "search:" + query
 	if cached := c.getCache(cacheKey); cached != nil {
@@ -119,7 +117,6 @@ func (c *Client) Info(names []string) (map[string]bool, error) {
 
 	result := make(map[string]bool)
 
-	// Batch in groups of infoBatchSize
 	for i := 0; i < len(names); i += infoBatchSize {
 		end := min(i+infoBatchSize, len(names))
 		batch := names[i:end]

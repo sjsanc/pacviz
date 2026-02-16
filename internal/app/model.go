@@ -16,10 +16,8 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/viewport"
 )
 
-// spinnerFrames contains the ASCII spinner animation frames.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-// InputMode represents the current input mode of the application.
 type InputMode int
 
 const (
@@ -29,7 +27,6 @@ const (
 	ModePassword
 )
 
-// ViewMode represents whether viewing local or remote packages.
 type ViewMode int
 
 const (
@@ -46,44 +43,36 @@ type Model struct {
 	Error    string
 	Ready    bool
 
-	// Input mode state
 	Mode   InputMode
 	Buffer string
 
-	// Preset state
 	Presets       []domain.Preset
-	CurrentPreset int // Index into Presets slice
+	CurrentPreset int
 
-	// Detail panel state
 	ShowDetailPanel bool
 
-	// Remote mode state
 	ViewMode      ViewMode
-	RemoteQuery   string        // The search query
-	RemoteLoading bool          // Whether a remote query is in progress
-	RemoteError   string        // Error message from remote query
-	LocalRows     []*domain.Row // Cached local rows when in remote mode
-	SpinnerFrame  int           // Current spinner animation frame
+	RemoteQuery   string
+	RemoteLoading bool
+	RemoteError   string
+	LocalRows     []*domain.Row
+	SpinnerFrame  int
 
-	// Installation state
-	PendingInstall bool   // Whether a package is pending installation confirmation
-	Installing     bool   // Whether a package is being installed
-	InstallingPkg  string // Name of package pending/being installed
-	InstallError   string // Error message from installation
-	InstallOutput  string // Output from installation operation
+	PendingInstall bool
+	Installing     bool
+	InstallingPkg  string
+	InstallError   string
+	InstallOutput  string
 
-	// Removal state
-	PendingRemoval bool   // Whether a package is pending removal confirmation
-	RemovingPkg    string // Name of package pending/being removed
-	Removing       bool   // Whether a package is currently being removed
-	RemoveError    string // Error message from removal
-	RemoveOutput   string // Output from removal operation
+	PendingRemoval bool
+	RemovingPkg    string
+	Removing       bool
+	RemoveError    string
+	RemoveOutput   string
 
-	// Password state
-	PasswordBuffer string // Buffer for password input (not displayed)
-	NeedsPassword  bool   // Whether we need to prompt for password
+	PasswordBuffer string
+	NeedsPassword  bool
 
-	// AUR state
 	AURClient        *aur.Client
 	AURHelper        *aur.HelperConfig
 	AUREnabled       bool
@@ -93,65 +82,54 @@ type Model struct {
 	aurSearchDone    bool
 }
 
-// packagesLoadedMsg is sent when packages are loaded.
 type packagesLoadedMsg struct {
 	packages []*domain.Package
 	err      error
 }
 
-// remoteSearchResultMsg is sent when a remote search completes.
 type remoteSearchResultMsg struct {
 	packages []*domain.Package
 	query    string
 	err      error
 }
 
-// spinnerTickMsg is sent to animate the spinner.
 type spinnerTickMsg struct{}
 
-// installCompleteMsg is sent when installation completes.
 type installCompleteMsg struct {
 	pkgName string
 	output  string
 	err     error
 }
 
-// removeCompleteMsg is sent when removal completes.
 type removeCompleteMsg struct {
 	pkgName string
 	output  string
 	err     error
 }
 
-// repositoryRefreshedMsg is sent when repository refresh completes.
 type repositoryRefreshedMsg struct {
 	shouldReload bool
 }
 
-// aurSearchResultMsg is sent when an AUR search completes.
 type aurSearchResultMsg struct {
 	packages []*domain.Package
 	query    string
 	err      error
 }
 
-// aurInfoResultMsg is sent when an AUR info lookup completes.
 type aurInfoResultMsg struct {
 	found map[string]bool
 	err   error
 }
 
-// aurInstallCompleteMsg is sent when an AUR installation completes.
 type aurInstallCompleteMsg struct {
 	err error
 }
 
-// commandResultMsg is sent when a command needs to affect the model.
 type commandResultMsg struct {
 	Result command.ExecuteResult
 }
 
-// executeCommandMsg creates a tea.Cmd that executes a command.
 func executeCommandMsg(commandStr string) tea.Cmd {
 	return func() tea.Msg {
 		result := command.Execute(commandStr)
@@ -181,7 +159,6 @@ func NewModel(cfg *config.Config) *Model {
 		CurrentPreset: 0,
 	}
 
-	// Initialize AUR features
 	if !cfg.AUR.Disabled {
 		timeout := time.Duration(cfg.AUR.Timeout) * time.Second
 		cacheTTL := time.Duration(cfg.AUR.CacheTTL) * time.Second
@@ -193,18 +170,15 @@ func NewModel(cfg *config.Config) *Model {
 	return m
 }
 
-// Init initializes the model (Bubble Tea interface).
 func (m Model) Init() tea.Cmd {
 	return m.loadPackages
 }
 
-// loadPackages loads installed packages from the repository.
 func (m Model) loadPackages() tea.Msg {
 	packages, err := m.Repo.GetInstalled()
 	return packagesLoadedMsg{packages: packages, err: err}
 }
 
-// refreshRepository refreshes the package database.
 func (m Model) refreshRepository(shouldReload bool) tea.Cmd {
 	return func() tea.Msg {
 		err := m.Repo.Refresh()
@@ -215,66 +189,53 @@ func (m Model) refreshRepository(shouldReload bool) tea.Cmd {
 	}
 }
 
-// Buffer Management Methods
-
-// EnterCommandMode switches to command mode and initializes the buffer.
 func (m *Model) EnterCommandMode() {
 	m.Mode = ModeCommand
 	m.Buffer = ":"
 }
 
-// EnterFilterMode switches to filter mode and initializes the buffer.
 func (m *Model) EnterFilterMode() {
 	m.Mode = ModeFilter
 	m.Buffer = "/"
 }
 
-// ExitMode returns to normal mode and clears the buffer.
 func (m *Model) ExitMode() {
 	m.Mode = ModeNormal
 	m.Buffer = ""
 }
 
-// WriteToBuffer appends a character or handles special keys in the buffer.
 func (m *Model) WriteToBuffer(key string) {
-	// Handle backspace
 	if key == "backspace" {
-		if len(m.Buffer) > 1 { // Keep the prefix (: or /)
+		if len(m.Buffer) > 1 {
 			m.Buffer = m.Buffer[:len(m.Buffer)-1]
 		}
 		return
 	}
 
-	// Ignore enter key (handled separately)
 	if key == "enter" {
 		return
 	}
 
-	// Append character to buffer
 	m.Buffer += key
 }
 
-// ClearBuffer resets the buffer to empty.
 func (m *Model) ClearBuffer() {
 	m.Buffer = ""
 }
 
-// GetBufferContent returns the buffer without the prefix.
 func (m *Model) GetBufferContent() string {
 	if len(m.Buffer) > 1 {
-		return m.Buffer[1:] // Strip the : or / prefix
+		return m.Buffer[1:]
 	}
 	return ""
 }
 
-// EnterPasswordMode switches to password mode.
 func (m *Model) EnterPasswordMode() {
 	m.Mode = ModePassword
 	m.PasswordBuffer = ""
 	m.NeedsPassword = true
 }
 
-// WriteToPasswordBuffer appends a character to the password buffer.
 func (m *Model) WriteToPasswordBuffer(key string) {
 	if key == "backspace" {
 		if len(m.PasswordBuffer) > 0 {
@@ -290,7 +251,6 @@ func (m *Model) WriteToPasswordBuffer(key string) {
 	m.PasswordBuffer += key
 }
 
-// ClearPasswordBuffer resets the password buffer.
 func (m *Model) ClearPasswordBuffer() {
 	m.PasswordBuffer = ""
 	m.NeedsPassword = false
@@ -302,7 +262,6 @@ func (m *Model) NextPreset() tea.Cmd {
 	return m.applyCurrentPreset()
 }
 
-// SetPreset sets a specific preset by name.
 func (m *Model) SetPreset(presetName string) (bool, tea.Cmd) {
 	for i, preset := range m.Presets {
 		if string(preset.Type) == presetName {
@@ -315,20 +274,15 @@ func (m *Model) SetPreset(presetName string) (bool, tea.Cmd) {
 }
 
 // applyCurrentPreset applies the current preset filter and resets sort/filters.
-// Returns a tea.Cmd if an async operation (like AUR info lookup) is needed.
 func (m *Model) applyCurrentPreset() tea.Cmd {
-	// Reset sort to default (Name, ascending)
 	m.Viewport.SortColumn = column.ColName
 	m.Viewport.SortReverse = false
-
-	// Clear any active filters
 	m.Viewport.ClearFilter()
 
-	// Apply preset filter
 	preset := m.Presets[m.CurrentPreset]
 	m.Viewport.ApplyPresetFilter(preset.Filter)
 
-	// If switching to AUR preset and AUR is enabled, do a lazy Info() lookup
+	// If switching to AUR preset, do a lazy Info() lookup
 	if preset.Type == domain.PresetAUR && m.AUREnabled && m.AURClient != nil {
 		return m.doAURInfoLookup()
 	}
@@ -336,24 +290,19 @@ func (m *Model) applyCurrentPreset() tea.Cmd {
 	return nil
 }
 
-// EnterRemoteMode starts a remote search.
 func (m *Model) EnterRemoteMode(query string) tea.Cmd {
-	// Cache current local rows
 	m.LocalRows = m.Viewport.AllRows
-
 	m.ViewMode = ViewRemote
 	m.RemoteQuery = query
 	m.RemoteLoading = true
 	m.RemoteError = ""
 	m.SpinnerFrame = 0
 
-	// Reset search buffering state
 	m.syncSearchResult = nil
 	m.syncSearchDone = false
 	m.aurSearchResult = nil
 	m.aurSearchDone = false
 
-	// Hide install date column and show installed column for remote mode
 	for _, col := range m.Viewport.Columns {
 		if col.Type == column.ColInstallDate {
 			col.Visible = false
@@ -363,13 +312,11 @@ func (m *Model) EnterRemoteMode(query string) tea.Cmd {
 		}
 	}
 
-	// Start spinner and searches concurrently
 	cmds := []tea.Cmd{
 		m.doRemoteSearch(query),
 		tickSpinner(),
 	}
 
-	// Also search AUR if enabled
 	if m.AUREnabled {
 		cmds = append(cmds, m.doAURSearch(query))
 	}
@@ -377,14 +324,12 @@ func (m *Model) EnterRemoteMode(query string) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// ExitRemoteMode returns to local mode and restores state.
 func (m *Model) ExitRemoteMode() {
 	m.ViewMode = ViewLocal
 	m.RemoteQuery = ""
 	m.RemoteLoading = false
 	m.RemoteError = ""
 
-	// Show install date column and hide installed column again
 	for _, col := range m.Viewport.Columns {
 		if col.Type == column.ColInstallDate {
 			col.Visible = true
@@ -394,22 +339,19 @@ func (m *Model) ExitRemoteMode() {
 		}
 	}
 
-	// Restore local rows
 	if m.LocalRows != nil {
 		m.Viewport.SetRows(m.LocalRows)
 		m.LocalRows = nil
 	}
 
-	// Reset to default view
 	m.Viewport.SortColumn = column.ColName
 	m.Viewport.SortReverse = false
 	m.Viewport.ClearFilter()
 	m.Viewport.ScrollToTop()
 	m.CurrentPreset = 0
-	_ = m.applyCurrentPreset() // Preset 0 (explicit) never needs async lookup
+	_ = m.applyCurrentPreset()
 }
 
-// doRemoteSearch performs the remote search query.
 func (m Model) doRemoteSearch(query string) tea.Cmd {
 	return func() tea.Msg {
 		packages, err := m.Repo.Search(query)
@@ -421,7 +363,6 @@ func (m Model) doRemoteSearch(query string) tea.Cmd {
 	}
 }
 
-// doAURSearch performs an AUR search query.
 func (m Model) doAURSearch(query string) tea.Cmd {
 	return func() tea.Msg {
 		packages, err := m.AURClient.Search(query)
@@ -452,10 +393,8 @@ func mergeSearchResults(syncPkgs, aurPkgs []*domain.Package) []*domain.Package {
 	return merged
 }
 
-// doAURInfoLookup performs an AUR info lookup for foreign packages.
 func (m Model) doAURInfoLookup() tea.Cmd {
 	return func() tea.Msg {
-		// Collect foreign package names
 		var foreignNames []string
 		for _, row := range m.Viewport.AllRows {
 			if row.Package != nil && row.Package.IsForeign {
@@ -472,32 +411,27 @@ func (m Model) doAURInfoLookup() tea.Cmd {
 	}
 }
 
-// tickSpinner returns a command that sends spinner tick messages.
 func tickSpinner() tea.Cmd {
 	return tea.Tick(80*time.Millisecond, func(t time.Time) tea.Msg {
 		return spinnerTickMsg{}
 	})
 }
 
-// GetSpinner returns the current spinner frame character.
 func (m Model) GetSpinner() string {
 	return spinnerFrames[m.SpinnerFrame%len(spinnerFrames)]
 }
 
-// InitiateInstall sets up the pending installation state.
 func (m *Model) InitiateInstall(pkgName string) {
 	m.PendingInstall = true
 	m.InstallingPkg = pkgName
 	m.InstallError = ""
 }
 
-// CancelInstall cancels the pending installation.
 func (m *Model) CancelInstall() {
 	m.PendingInstall = false
 	m.InstallingPkg = ""
 }
 
-// InstallPackage starts installation of a package.
 func (m *Model) InstallPackage(pkgName string, password string) tea.Cmd {
 	m.Installing = true
 	m.PendingInstall = false
@@ -510,7 +444,6 @@ func (m *Model) InstallPackage(pkgName string, password string) tea.Cmd {
 	)
 }
 
-// doInstall performs the package installation.
 func (m Model) doInstall(pkgName string, password string) tea.Cmd {
 	return func() tea.Msg {
 		output, err := m.Repo.Install([]string{pkgName}, password)
@@ -522,14 +455,12 @@ func (m Model) doInstall(pkgName string, password string) tea.Cmd {
 	}
 }
 
-// InitiateRemoval sets up the pending removal state.
 func (m *Model) InitiateRemoval(pkgName string) {
 	m.PendingRemoval = true
 	m.RemovingPkg = pkgName
 	m.RemoveError = ""
 }
 
-// isSelectedPackageAUR checks if the currently selected package is from the AUR.
 func (m Model) isSelectedPackageAUR() bool {
 	if m.Viewport.SelectedRow < 0 || m.Viewport.SelectedRow >= len(m.Viewport.VisibleRows) {
 		return false
@@ -538,18 +469,15 @@ func (m Model) isSelectedPackageAUR() bool {
 	return row.Package != nil && row.Package.IsAUR
 }
 
-// IsRunningAsRoot checks if the program is running with root privileges.
 func IsRunningAsRoot() bool {
 	return os.Geteuid() == 0
 }
 
-// CancelRemoval cancels the pending removal.
 func (m *Model) CancelRemoval() {
 	m.PendingRemoval = false
 	m.RemovingPkg = ""
 }
 
-// RemovePackage starts removal of a package.
 func (m *Model) RemovePackage(pkgName string, password string) tea.Cmd {
 	m.Removing = true
 	m.PendingRemoval = false
@@ -576,7 +504,6 @@ func (m Model) doAURInstall(pkgName string) tea.Cmd {
 	})
 }
 
-// doRemove performs the package removal.
 func (m Model) doRemove(pkgName string, password string) tea.Cmd {
 	return func() tea.Msg {
 		output, err := m.Repo.Remove([]string{pkgName}, false, password)

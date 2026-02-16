@@ -12,14 +12,12 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/domain"
 )
 
-// AlpmRepository is the production implementation using go-alpm.
 type AlpmRepository struct {
 	handle  *alpm.Handle
 	localDB alpm.IDB
 	syncDBs alpm.IDBList
 }
 
-// NewAlpmRepository creates a new ALPM repository.
 func NewAlpmRepository() (*AlpmRepository, error) {
 	pacmanConf, _, err := pacmanconf.ParseFile("/etc/pacman.conf")
 	if err != nil {
@@ -58,7 +56,6 @@ func NewAlpmRepository() (*AlpmRepository, error) {
 	}, nil
 }
 
-// GetInstalled returns all installed packages.
 func (r *AlpmRepository) GetInstalled() ([]*domain.Package, error) {
 	pkgs := r.localDB.PkgCache()
 	result := make([]*domain.Package, 0)
@@ -74,7 +71,6 @@ func (r *AlpmRepository) GetInstalled() ([]*domain.Package, error) {
 	return result, nil
 }
 
-// convertPackage converts an ALPM package to our domain package.
 func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 	installReason := domain.ReasonDependency
 	if pkg.Reason() == alpm.PkgReasonExplicit {
@@ -105,7 +101,7 @@ func (r *AlpmRepository) convertPackage(pkg alpm.IPackage) *domain.Package {
 	}
 }
 
-// computeOrphans calculates which packages are orphans (dependencies with no dependents).
+// computeOrphans marks dependency packages that have no reverse dependents as orphans.
 func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 	pkgMap := make(map[string]*domain.Package)
 	for _, pkg := range packages {
@@ -128,7 +124,7 @@ func (r *AlpmRepository) computeOrphans(packages []*domain.Package) {
 	}
 }
 
-// computeForeign marks packages that are not in any sync database as foreign
+// computeForeign marks packages not in any sync database as foreign
 // and populates the repository name for all packages.
 func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 	pkgToRepo := make(map[string]string)
@@ -161,7 +157,6 @@ func (r *AlpmRepository) computeForeign(packages []*domain.Package) {
 	}
 }
 
-// Search searches sync databases for packages matching the query.
 func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
 	result := make([]*domain.Package, 0)
 
@@ -184,7 +179,6 @@ func (r *AlpmRepository) Search(query string) ([]*domain.Package, error) {
 	return result, nil
 }
 
-// convertSyncPackage converts an ALPM sync package to our domain package.
 func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) *domain.Package {
 	deps := make([]string, 0)
 	pkg.Depends().ForEach(func(dep *alpm.Depend) error {
@@ -224,7 +218,6 @@ func (r *AlpmRepository) convertSyncPackage(pkg alpm.IPackage, repoName string) 
 	return p
 }
 
-// Install installs packages using pacman.
 func (r *AlpmRepository) Install(names []string, password string) (string, error) {
 	if len(names) == 0 {
 		return "", fmt.Errorf("no packages specified for installation")
@@ -233,9 +226,7 @@ func (r *AlpmRepository) Install(names []string, password string) (string, error
 	args := []string{"-S", "--noconfirm"}
 	args = append(args, names...)
 
-	// Check if running as root
 	if os.Geteuid() == 0 {
-		// Already root, run pacman directly
 		cmd := exec.Command("pacman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -244,10 +235,8 @@ func (r *AlpmRepository) Install(names []string, password string) (string, error
 		return string(output), nil
 	}
 
-	// Not root, use sudo with password via stdin
 	cmd := exec.Command("sudo", append([]string{"-S", "pacman"}, args...)...)
 
-	// Create a buffer with the password
 	var stdin bytes.Buffer
 	stdin.WriteString(password + "\n")
 	cmd.Stdin = &stdin
@@ -260,7 +249,6 @@ func (r *AlpmRepository) Install(names []string, password string) (string, error
 	return string(output), nil
 }
 
-// Remove removes packages using pacman.
 func (r *AlpmRepository) Remove(names []string, cascade bool, password string) (string, error) {
 	if len(names) == 0 {
 		return "", fmt.Errorf("no packages specified for removal")
@@ -274,9 +262,7 @@ func (r *AlpmRepository) Remove(names []string, cascade bool, password string) (
 
 	args = append(args, names...)
 
-	// Check if running as root
 	if os.Geteuid() == 0 {
-		// Already root, run pacman directly
 		cmd := exec.Command("pacman", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -285,10 +271,8 @@ func (r *AlpmRepository) Remove(names []string, cascade bool, password string) (
 		return string(output), nil
 	}
 
-	// Not root, use sudo with password via stdin
 	cmd := exec.Command("sudo", append([]string{"-S", "pacman"}, args...)...)
 
-	// Create a buffer with the password
 	var stdin bytes.Buffer
 	stdin.WriteString(password + "\n")
 	cmd.Stdin = &stdin
@@ -301,14 +285,12 @@ func (r *AlpmRepository) Remove(names []string, cascade bool, password string) (
 	return string(output), nil
 }
 
-// Refresh refreshes the package database by reinitializing the ALPM handle.
+// Refresh reinitializes the ALPM handle to reflect database changes.
 func (r *AlpmRepository) Refresh() error {
-	// Release the current handle
 	if r.handle != nil {
 		r.handle.Release()
 	}
 
-	// Reinitialize
 	pacmanConf, _, err := pacmanconf.ParseFile("/etc/pacman.conf")
 	if err != nil {
 		return fmt.Errorf("failed to parse pacman.conf: %w", err)

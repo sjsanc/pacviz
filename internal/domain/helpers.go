@@ -7,7 +7,6 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/column"
 )
 
-// PackagesToRows converts packages to table rows.
 func PackagesToRows(packages []*Package) []*Row {
 	rows := make([]*Row, 0, len(packages))
 	for idx, pkg := range packages {
@@ -16,11 +15,9 @@ func PackagesToRows(packages []*Package) []*Row {
 	return rows
 }
 
-// PackageToRow converts a single package to a row.
 func PackageToRow(pkg *Package, index int) *Row {
 	row := NewRow(pkg)
 
-	// Format cells
 	row.Cells[column.ColIndex] = fmt.Sprintf("%d", index)
 	row.Cells[column.ColRepo] = pkg.Repository
 	row.Cells[column.ColName] = pkg.Name
@@ -36,7 +33,6 @@ func PackageToRow(pkg *Package, index int) *Row {
 	row.Cells[column.ColGroups] = strings.Join(pkg.Groups, ", ")
 	row.Cells[column.ColDescription] = pkg.Description
 
-	// Additional fields
 	row.Cells[column.ColURL] = pkg.URL
 	row.Cells[column.ColLicenses] = strings.Join(pkg.Licenses, ", ")
 	row.Cells[column.ColArchitecture] = pkg.Architecture
@@ -57,7 +53,6 @@ func PackageToRow(pkg *Package, index int) *Row {
 	return row
 }
 
-// formatSize formats bytes into human-readable size.
 func formatSize(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
@@ -71,7 +66,6 @@ func formatSize(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// formatOptDepends formats optional dependencies map as a readable string.
 func formatOptDepends(optDepends map[string]string) string {
 	if len(optDepends) == 0 {
 		return ""
@@ -87,7 +81,6 @@ func formatOptDepends(optDepends map[string]string) string {
 	return strings.Join(deps, ", ")
 }
 
-// formatInstallReason formats the install reason as a readable string.
 func formatInstallReason(reason InstallReason) string {
 	switch reason {
 	case ReasonExplicit:
@@ -99,7 +92,6 @@ func formatInstallReason(reason InstallReason) string {
 	}
 }
 
-// formatBool converts a boolean to "Yes" or "No".
 func formatBool(b bool) string {
 	if b {
 		return "Yes"

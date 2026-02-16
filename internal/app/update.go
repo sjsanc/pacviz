@@ -51,13 +51,11 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 
 	rows := domain.PackagesToRows(msg.packages)
 
-	// If in remote mode, update the cached local rows instead of replacing
-	// the viewport (which holds search results)
+	// In remote mode, update cached local rows and re-run search to refresh install status
 	if m.ViewMode == ViewRemote {
 		m.LocalRows = rows
 		m.Ready = true
 
-		// Re-run the search so install status refreshes in search results
 		var cmds []tea.Cmd
 		cmds = append(cmds, m.doRemoteSearch(m.RemoteQuery))
 		if m.AUREnabled {
@@ -75,7 +73,6 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 
 	presetCmd := m.applyCurrentPreset()
 
-	// Ensure SelectedRow is within valid bounds after data reload
 	if m.Viewport.SelectedRow >= len(m.Viewport.VisibleRows) {
 		if len(m.Viewport.VisibleRows) > 0 {
 			m.Viewport.SelectedRow = len(m.Viewport.VisibleRows) - 1
@@ -87,8 +84,7 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 		m.Viewport.SelectedRow = 0
 	}
 
-	// After loading packages, look up which foreign packages are AUR packages
-	// so the Repo column shows "aur" instead of "foreign"
+	// Look up which foreign packages are AUR packages so Repo column shows "aur"
 	var cmds []tea.Cmd
 	if presetCmd != nil {
 		cmds = append(cmds, presetCmd)
@@ -105,14 +101,12 @@ func (m Model) handlePackagesLoaded(msg packagesLoadedMsg) (tea.Model, tea.Cmd) 
 
 func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		// Store error but don't fail — AUR results may still come
 		m.syncSearchResult = nil
 	} else {
 		m.syncSearchResult = msg.packages
 	}
 	m.syncSearchDone = true
 
-	// If AUR is not enabled or AUR is also done, finalize
 	if !m.AUREnabled || m.aurSearchDone {
 		return m.finalizeSearchResults(msg.query, msg.err)
 	}
@@ -122,20 +116,15 @@ func (m Model) handleRemoteSearchResult(msg remoteSearchResultMsg) (tea.Model, t
 
 func (m Model) handleAURSearchResult(msg aurSearchResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		// AUR search failed — proceed with sync-only results
 		m.aurSearchResult = nil
 	} else {
 		m.aurSearchResult = msg.packages
 	}
 	m.aurSearchDone = true
 
-	// If sync is also done, finalize
 	if m.syncSearchDone {
-		// Use the sync error if sync failed; AUR failure is graceful
 		var syncErr error
 		if m.syncSearchResult == nil && m.syncSearchDone {
-			// Check if sync had an error — we need to pass it through
-			// If syncSearchResult is nil, it means sync either errored or returned 0 results
 		}
 		return m.finalizeSearchResults(msg.query, syncErr)
 	}
@@ -146,7 +135,6 @@ func (m Model) handleAURSearchResult(msg aurSearchResultMsg) (tea.Model, tea.Cmd
 func (m Model) finalizeSearchResults(query string, syncErr error) (tea.Model, tea.Cmd) {
 	m.RemoteLoading = false
 
-	// Merge results
 	syncPkgs := m.syncSearchResult
 	aurPkgs := m.aurSearchResult
 
@@ -178,11 +166,9 @@ func (m Model) finalizeSearchResults(query string, syncErr error) (tea.Model, te
 
 func (m Model) handleAURInfoResult(msg aurInfoResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		// Silently ignore — packages stay as foreign
 		return m, nil
 	}
 
-	// Set IsAUR on matching packages
 	for _, row := range m.Viewport.AllRows {
 		if row.Package != nil && msg.found[row.Package.Name] {
 			row.Package.IsAUR = true
@@ -191,8 +177,6 @@ func (m Model) handleAURInfoResult(msg aurInfoResultMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Re-apply current preset filter to update visible rows
-	// No need to propagate cmd here — we just finished the AUR info lookup
 	_ = m.applyCurrentPreset()
 
 	return m, nil
@@ -210,10 +194,8 @@ func (m Model) handleAURInstallComplete(msg aurInstallCompleteMsg) (tea.Model, t
 		m.InstallOutput = "AUR package installed successfully"
 	}
 
-	// Refresh repository, then reload packages
 	cmds := []tea.Cmd{m.refreshRepository(true)}
 
-	// If in search mode, re-run the search so install status updates
 	if m.ViewMode == ViewRemote && m.RemoteQuery != "" {
 		cmds = append(cmds, m.doRemoteSearch(m.RemoteQuery))
 		if m.AUREnabled {
@@ -236,7 +218,6 @@ func (m Model) handleRepositoryRefreshed(msg repositoryRefreshedMsg) (tea.Model,
 }
 
 func (m Model) handleSpinnerTick() (tea.Model, tea.Cmd) {
-	// Only continue spinning if we're still loading, installing, or removing
 	if !m.RemoteLoading && !m.Installing && !m.Removing {
 		return m, nil
 	}
@@ -256,7 +237,6 @@ func (m Model) handleInstallComplete(msg installCompleteMsg) (tea.Model, tea.Cmd
 		m.InstallError = msg.err.Error()
 	}
 
-	// Refresh repository, then reload packages
 	return m, m.refreshRepository(true)
 }
 
@@ -271,14 +251,12 @@ func (m Model) handleRemoveComplete(msg removeCompleteMsg) (tea.Model, tea.Cmd) 
 		m.RemoveError = msg.err.Error()
 	}
 
-	// Refresh repository, then reload packages
 	return m, m.refreshRepository(true)
 }
 
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 
-	// Handle mode-specific input
 	switch m.Mode {
 	case ModeCommand:
 		return m.handleCommandModeInput(key)
@@ -299,20 +277,16 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 		case "enter":
 			pkgName := m.InstallingPkg
 
-			// Check if this is an AUR package
 			if m.isSelectedPackageAUR() {
 				m.PendingInstall = false
 				m.Installing = true
 				return m, m.doAURInstall(pkgName)
 			}
 
-			// Check if we need a password
 			if !IsRunningAsRoot() {
-				// Prompt for password
 				m.EnterPasswordMode()
 				return m, nil
 			}
-			// Already root, proceed with installation
 			return m, m.InstallPackage(pkgName, "")
 		case "esc", "ctrl+c":
 			m.CancelInstall()
@@ -325,13 +299,10 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	if m.PendingRemoval {
 		switch key {
 		case "enter":
-			// Check if we need a password
 			if !IsRunningAsRoot() {
-				// Prompt for password
 				m.EnterPasswordMode()
 				return m, nil
 			}
-			// Already root, proceed with removal
 			pkgName := m.RemovingPkg
 			return m, m.RemovePackage(pkgName, "")
 		case "esc", "ctrl+c":
@@ -346,7 +317,6 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "enter":
-		// If output palette is active, dismiss it and clear state
 		if m.RemoveOutput != "" {
 			m.RemoveOutput = ""
 			m.RemoveError = ""
@@ -357,7 +327,6 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 			m.InstallError = ""
 			return m, nil
 		}
-		// Otherwise toggle detail panel
 		m.ShowDetailPanel = !m.ShowDetailPanel
 	case "esc":
 		if m.ShowDetailPanel {
@@ -410,7 +379,6 @@ func (m Model) handleNormalModeInput(key string) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case "i":
 		if m.ViewMode == ViewRemote && m.ShowDetailPanel && m.Viewport.SelectedRow >= 0 && m.Viewport.SelectedRow < len(m.Viewport.VisibleRows) {
-			// In detail view in remote mode, pressing 'i' initiates install
 			selectedRow := m.Viewport.VisibleRows[m.Viewport.SelectedRow]
 			pkgName := selectedRow.Cells[column.ColName]
 			m.InitiateInstall(pkgName)
@@ -462,7 +430,6 @@ func (m Model) handleFilterModeInput(key string) (tea.Model, tea.Cmd) {
 func (m Model) handlePasswordModeInput(key string) (tea.Model, tea.Cmd) {
 	switch key {
 	case "esc":
-		// Cancel password entry and operation
 		m.ExitMode()
 		m.ClearPasswordBuffer()
 		if m.PendingInstall {
@@ -473,7 +440,6 @@ func (m Model) handlePasswordModeInput(key string) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
-		// Submit password and proceed with operation
 		password := m.PasswordBuffer
 		m.ExitMode()
 		m.ClearPasswordBuffer()
@@ -488,7 +454,6 @@ func (m Model) handlePasswordModeInput(key string) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
-		// Add character to password buffer
 		m.WriteToPasswordBuffer(key)
 		return m, nil
 	}
@@ -576,9 +541,7 @@ func (m Model) handleCommandResult(msg commandResultMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	m.Width = msg.Width
 	m.Height = msg.Height
-	// Reserve 1 line for header + 1 line for status bar
 	m.Viewport.Height = msg.Height - 2
-	// Ensure selection is still visible after resize
 	m.Viewport.EnsureSelectionVisible()
 	return m, nil
 }
@@ -588,7 +551,6 @@ func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Handle mouse wheel scroll
 	switch msg.Type {
 	case tea.MouseWheelUp:
 		m.Viewport.SelectPrev()
@@ -598,7 +560,6 @@ func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Handle mouse click
 	if msg.Type != tea.MouseLeft {
 		return m, nil
 	}
@@ -617,15 +578,11 @@ func (m Model) handleMouseEvent(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 }
 
 // isValidSearchChar checks if a key is a valid printable character for search.
-// It filters out control keys and special navigation keys that shouldn't appear in search text.
 func isValidSearchChar(key string) bool {
-	// Single character printable keys
 	if len(key) == 1 {
-		// Allow letters, numbers, and common punctuation
 		return true
 	}
 
-	// Allow specific multi-character keys that are printable
 	validMultiChars := map[string]bool{
 		"space": true,
 		"tab":   true,
@@ -650,7 +607,7 @@ func isValidSearchChar(key string) bool {
 		"*":     true,
 		"/":     true,
 		"|":     true,
-		"\\": true,
+		"\\":    true,
 		"?":     true,
 		"!":     true,
 		"`":     true,

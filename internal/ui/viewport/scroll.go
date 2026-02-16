@@ -1,6 +1,5 @@
 package viewport
 
-// Scroll moves the viewport by delta rows.
 func (v *Viewport) Scroll(delta int) {
 	if len(v.VisibleRows) == 0 {
 		return
@@ -8,7 +7,6 @@ func (v *Viewport) Scroll(delta int) {
 
 	newSelectedRow := v.SelectedRow + delta
 
-	// Bounds checking
 	if newSelectedRow < 0 {
 		newSelectedRow = 0
 	} else if newSelectedRow >= len(v.VisibleRows) {
@@ -19,7 +17,6 @@ func (v *Viewport) Scroll(delta int) {
 	v.EnsureSelectionVisible()
 }
 
-// ScrollToTop jumps to the first row.
 func (v *Viewport) ScrollToTop() {
 	if len(v.VisibleRows) == 0 {
 		return
@@ -29,7 +26,6 @@ func (v *Viewport) ScrollToTop() {
 	v.Offset = 0
 }
 
-// ScrollToBottom jumps to the last row.
 func (v *Viewport) ScrollToBottom() {
 	if len(v.VisibleRows) == 0 {
 		return
@@ -37,7 +33,6 @@ func (v *Viewport) ScrollToBottom() {
 
 	v.SelectedRow = len(v.VisibleRows) - 1
 
-	// Set offset so the last row is at the bottom of the viewport
 	if v.Height > 0 && len(v.VisibleRows) > v.Height {
 		v.Offset = len(v.VisibleRows) - v.Height
 	} else {
@@ -51,7 +46,6 @@ func (v *Viewport) ScrollToLine(line int) {
 		return
 	}
 
-	// Bounds checking
 	if line < 0 {
 		line = 0
 	} else if line >= len(v.VisibleRows) {
@@ -62,7 +56,6 @@ func (v *Viewport) ScrollToLine(line int) {
 	v.centerSelection()
 }
 
-// PageUp moves the selection up by a half page.
 func (v *Viewport) PageUp() {
 	if v.Height == 0 {
 		return
@@ -74,7 +67,6 @@ func (v *Viewport) PageUp() {
 	v.Scroll(-delta)
 }
 
-// PageDown moves the selection down by a half page.
 func (v *Viewport) PageDown() {
 	if v.Height == 0 {
 		return

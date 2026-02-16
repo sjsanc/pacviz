@@ -15,9 +15,7 @@ type CommandDef struct {
 	Description string
 }
 
-// GetAllCommands returns all available commands, optionally filtered by mode.
-// If isRemoteMode is true, only show commands available in remote mode.
-// If isRemoteMode is false, only show commands available in local mode.
+// GetAllCommands returns all available commands, filtered by mode.
 func GetAllCommands(isRemoteMode bool) []CommandDef {
 	baseCommands := []CommandDef{
 		{
@@ -95,7 +93,6 @@ func GetAllCommands(isRemoteMode bool) []CommandDef {
 	return baseCommands
 }
 
-// FilterCommands filters commands based on the current buffer input.
 func FilterCommands(buffer string, commands []CommandDef) []CommandDef {
 	if buffer == "" {
 		return commands
@@ -105,13 +102,11 @@ func FilterCommands(buffer string, commands []CommandDef) []CommandDef {
 	filtered := make([]CommandDef, 0)
 
 	for _, cmd := range commands {
-		// Match against command name
 		if strings.HasPrefix(strings.ToLower(cmd.Name), lowerBuffer) {
 			filtered = append(filtered, cmd)
 			continue
 		}
 
-		// Match against aliases
 		for _, alias := range cmd.Aliases {
 			if strings.HasPrefix(strings.ToLower(alias), lowerBuffer) {
 				filtered = append(filtered, cmd)
@@ -124,7 +119,6 @@ func FilterCommands(buffer string, commands []CommandDef) []CommandDef {
 }
 
 // RenderCommandPalette renders the command palette as table-style rows.
-// Returns the rendered palette and the number of rows it occupies.
 func RenderCommandPalette(buffer string, width int, isRemoteMode bool) (string, int) {
 	commands := GetAllCommands(isRemoteMode)
 	filtered := FilterCommands(buffer, commands)
@@ -133,13 +127,11 @@ func RenderCommandPalette(buffer string, width int, isRemoteMode bool) (string, 
 		return "", 0
 	}
 
-	// Limit to first 6 commands to avoid taking too much space
 	maxDisplay := 6
 	if len(filtered) > maxDisplay {
 		filtered = filtered[:maxDisplay]
 	}
 
-	// Row style matching table rows
 	rowStyle := lipgloss.NewStyle().
 		Foreground(styles.Current.Foreground).
 		Background(styles.Current.Selected).
@@ -156,7 +148,6 @@ func RenderCommandPalette(buffer string, width int, isRemoteMode bool) (string, 
 	descStyle := lipgloss.NewStyle().
 		Foreground(styles.Current.Dimmed)
 
-	// Build command list
 	var lines []string
 	for _, cmd := range filtered {
 		cmdText := commandStyle.Render(":" + cmd.Name)
@@ -177,28 +168,24 @@ func RenderCommandPalette(buffer string, width int, isRemoteMode bool) (string, 
 }
 
 // RenderOutputPalette renders the output palette showing command output.
-// Returns the rendered palette and the number of rows it occupies.
 func RenderOutputPalette(output string, width int) (string, int) {
 	if output == "" {
 		return "", 0
 	}
 
-	// Split output into lines
 	outputLines := strings.Split(output, "\n")
 
-	// Limit to first 10 lines to avoid taking too much space
+	// Limit to first 10 lines
 	maxDisplay := 10
 	if len(outputLines) > maxDisplay {
 		outputLines = outputLines[:maxDisplay]
 	}
 
-	// Row style matching command palette
 	rowStyle := lipgloss.NewStyle().
 		Foreground(styles.Current.Foreground).
 		Background(styles.Current.Selected).
 		Width(width)
 
-	// Build output list
 	var lines []string
 	for _, line := range outputLines {
 		if line == "" {

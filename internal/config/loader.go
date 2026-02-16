@@ -11,11 +11,9 @@ import (
 
 // Load loads configuration from file.
 // Returns default config if file doesn't exist (only when optional is true).
-// Fails if file doesn't exist and optional is false.
 func Load(path string, optional bool) (*Config, error) {
 	config := DefaultConfig()
 
-	// Check if file exists
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			if optional {
@@ -26,9 +24,8 @@ func Load(path string, optional bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to stat config file: %w", err)
 	}
 
-	// Parse TOML file
 	tomlConfig := struct {
-		SelectedTheme string `toml:"selected_theme"` // Theme name to load
+		SelectedTheme string `toml:"selected_theme"`
 		AUR           struct {
 			Helper   string `toml:"helper"`
 			Disabled bool   `toml:"disabled"`
@@ -36,7 +33,6 @@ func Load(path string, optional bool) (*Config, error) {
 			CacheTTL int    `toml:"cache_ttl"`
 		} `toml:"aur"`
 		Theme struct {
-			// Nested overrides (new format)
 			Overrides struct {
 				Accent1       string `toml:"accent1"`
 				Accent2       string `toml:"accent2"`
@@ -52,7 +48,7 @@ func Load(path string, optional bool) (*Config, error) {
 				WarningAccent string `toml:"warning_accent"`
 			} `toml:"overrides"`
 
-			// Flat structure (backwards compatibility)
+			// Flat structure for backwards compatibility
 			Accent1       string `toml:"accent1"`
 			Accent2       string `toml:"accent2"`
 			Accent3       string `toml:"accent3"`
@@ -73,7 +69,6 @@ func Load(path string, optional bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Apply AUR config overrides
 	if tomlConfig.AUR.Helper != "" {
 		config.AUR.Helper = tomlConfig.AUR.Helper
 	}
@@ -87,7 +82,6 @@ func Load(path string, optional bool) (*Config, error) {
 		config.AUR.CacheTTL = tomlConfig.AUR.CacheTTL
 	}
 
-	// Load base theme by name (defaults to "default" if not specified)
 	themeName := tomlConfig.SelectedTheme
 	if themeName == "" {
 		themeName = "default"
@@ -98,9 +92,7 @@ func Load(path string, optional bool) (*Config, error) {
 		return nil, fmt.Errorf("failed to load theme '%s': %w", themeName, err)
 	}
 
-	// Apply overrides from both nested and flat structures (flat takes precedence for backwards compat)
-
-	// Check nested overrides first
+	// Apply nested overrides
 	if tomlConfig.Theme.Overrides.Accent1 != "" {
 		baseTheme.Accent1 = tomlConfig.Theme.Overrides.Accent1
 	}
@@ -138,7 +130,7 @@ func Load(path string, optional bool) (*Config, error) {
 		baseTheme.WarningAccent = tomlConfig.Theme.Overrides.WarningAccent
 	}
 
-	// Apply flat overrides (backwards compatibility - these take precedence)
+	// Flat overrides take precedence for backwards compatibility
 	if tomlConfig.Theme.Accent1 != "" {
 		baseTheme.Accent1 = tomlConfig.Theme.Accent1
 	}
@@ -176,16 +168,12 @@ func Load(path string, optional bool) (*Config, error) {
 		baseTheme.WarningAccent = tomlConfig.Theme.WarningAccent
 	}
 
-	// Always apply the loaded theme (with any overrides)
 	styles.ApplyTheme(baseTheme)
 
 	return config, nil
 }
 
-// LoadDefault loads configuration from the default location.
-// It follows XDG conventions with fallbacks:
-// 1. $XDG_CONFIG_HOME/pacviz/config.toml (or ~/.config/pacviz/config.toml)
-// 2. Returns default config if no file found
+// LoadDefault loads configuration from the default XDG location.
 func LoadDefault() (*Config, error) {
 	configPath, err := getConfigPath()
 	if err != nil {
@@ -194,8 +182,7 @@ func LoadDefault() (*Config, error) {
 	return Load(configPath, true)
 }
 
-// LoadWithOverride loads configuration from a file, or the default location if path is empty.
-// If path is explicitly provided, the file must exist or an error is returned.
+// LoadWithOverride loads from a specific path (must exist) or falls back to default.
 func LoadWithOverride(path string) (*Config, error) {
 	if path != "" {
 		return Load(path, false)
@@ -203,14 +190,11 @@ func LoadWithOverride(path string) (*Config, error) {
 	return LoadDefault()
 }
 
-// getConfigPath returns the config file path following XDG conventions.
 func getConfigPath() (string, error) {
-	// Check XDG_CONFIG_HOME first
 	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
 		return filepath.Join(xdgConfigHome, "pacviz", "config.toml"), nil
 	}
 
-	// Fall back to ~/.config/pacviz/config.toml
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

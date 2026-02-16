@@ -7,16 +7,16 @@ import (
 
 // ExecuteResult represents the result of executing a command.
 type ExecuteResult struct {
-	Quit           bool   // Whether to quit the application
-	GoToLine       int    // Line number to jump to (-1 = no jump)
-	ScrollTop      bool   // Whether to scroll to top
-	ScrollEnd      bool   // Whether to scroll to end
-	Error          string // Error message if command failed
-	PresetChange   string // Preset to switch to (empty = no change)
-	RemoteSearch   string // Remote search query (empty = no search)
-	InstallPackage bool   // Whether to install the selected package
-	RemovePackage  bool   // Whether to remove the selected package
-	ThemeName      string // Theme to apply (empty = no change)
+	Quit           bool
+	GoToLine       int
+	ScrollTop      bool
+	ScrollEnd      bool
+	Error          string
+	PresetChange   string
+	RemoteSearch   string
+	InstallPackage bool
+	RemovePackage  bool
+	ThemeName      string
 }
 
 // Execute parses and executes a command string.
@@ -26,11 +26,9 @@ func Execute(commandStr string) ExecuteResult {
 		return ExecuteResult{GoToLine: -1}
 	}
 
-	// Special handling for :g command - allow :g22 syntax
+	// Allow :g22 syntax (no space between command and number)
 	if strings.HasPrefix(commandStr, "g") && len(commandStr) > 1 {
-		// Check if character after 'g' is a digit
 		if commandStr[1] >= '0' && commandStr[1] <= '9' {
-			// Extract the number part
 			return executeGoTo([]string{commandStr[1:]})
 		}
 	}
@@ -70,7 +68,6 @@ func Execute(commandStr string) ExecuteResult {
 	}
 }
 
-// executeGoTo handles the :g <line> command.
 func executeGoTo(args []string) ExecuteResult {
 	if len(args) == 0 {
 		return ExecuteResult{
@@ -88,13 +85,11 @@ func executeGoTo(args []string) ExecuteResult {
 		}
 	}
 
-	// Convert to 0-based index (user sees 1-based line numbers)
 	return ExecuteResult{
 		GoToLine: line - 1,
 	}
 }
 
-// executePreset handles the :p <preset> command.
 func executePreset(args []string) ExecuteResult {
 	if len(args) == 0 {
 		return ExecuteResult{
@@ -104,7 +99,6 @@ func executePreset(args []string) ExecuteResult {
 	}
 
 	preset := args[0]
-	// Validate preset name
 	validPresets := map[string]bool{
 		"explicit":   true,
 		"dependency": true,
@@ -128,7 +122,6 @@ func executePreset(args []string) ExecuteResult {
 	}
 }
 
-// executeSearch handles the :s <query> command.
 func executeSearch(args []string) ExecuteResult {
 	if len(args) == 0 {
 		return ExecuteResult{
@@ -137,7 +130,6 @@ func executeSearch(args []string) ExecuteResult {
 		}
 	}
 
-	// Join all args to allow multi-word search queries
 	query := strings.Join(args, " ")
 
 	return ExecuteResult{
@@ -146,7 +138,6 @@ func executeSearch(args []string) ExecuteResult {
 	}
 }
 
-// executeTheme handles the :theme <name> command.
 func executeTheme(args []string) ExecuteResult {
 	if len(args) == 0 {
 		return ExecuteResult{

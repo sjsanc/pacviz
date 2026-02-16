@@ -6,7 +6,6 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 	remainingWidth := terminalWidth
 	autoColumns := make([]int, 0)
 
-	// Step 1: Allocate fixed-width columns
 	for i, col := range columns {
 		if !col.Visible {
 			widths[i] = 0
@@ -19,7 +18,6 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 		}
 	}
 
-	// Step 2: Allocate percentage-based columns
 	for i, col := range columns {
 		if !col.Visible || col.Width.Type != WidthPercent {
 			continue
@@ -27,7 +25,6 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 
 		width := (terminalWidth * col.Width.Size) / 100
 
-		// Apply min/max constraints
 		if col.Width.Min > 0 && width < col.Width.Min {
 			width = col.Width.Min
 		}
@@ -39,7 +36,6 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 		remainingWidth -= width
 	}
 
-	// Step 3: Find auto-sized columns
 	for i, col := range columns {
 		if !col.Visible {
 			continue
@@ -49,7 +45,6 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 		}
 	}
 
-	// Step 4: Distribute remaining space to auto-sized columns
 	if len(autoColumns) > 0 && remainingWidth > 0 {
 		widthPerAuto := remainingWidth / len(autoColumns)
 		remainder := remainingWidth % len(autoColumns)
@@ -57,13 +52,11 @@ func CalculateWidths(columns []*Column, terminalWidth int) []int {
 		for i, colIdx := range autoColumns {
 			width := widthPerAuto
 			if i == len(autoColumns)-1 {
-				// Give remainder to last column
 				width += remainder
 			}
 
 			col := columns[colIdx]
 
-			// Apply min/max constraints
 			if col.Width.Min > 0 && width < col.Width.Min {
 				width = col.Width.Min
 			}

@@ -9,9 +9,8 @@ import (
 	"github.com/sjsanc/pacviz/v3/internal/ui/styles"
 )
 
-// detailField defines a field to display in the detail panel.
 type detailField struct {
-	label string
+	label   string
 	colType column.Type
 }
 
@@ -42,20 +41,16 @@ var detailPanelFields = []detailField{
 }
 
 // RenderDetailPanel renders the package detail panel as an overlay above the status bar.
-// If isRemote is true, show install commands at the bottom using remote colors.
 func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths []int, width int, _ bool, isRemote bool) string {
 	if pkg == nil {
 		return ""
 	}
 
-	// Style for labels (same as index column)
 	labelStyle := styles.Current.Index
 	valueStyle := lipgloss.NewStyle().Foreground(styles.Current.Foreground)
 
-	// Create a temporary row to get formatted cell values
 	row := domain.PackageToRow(pkg, 0)
 
-	// Collect all fields to display
 	var fields []struct {
 		label string
 		value string
@@ -64,7 +59,6 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 	for _, field := range detailPanelFields {
 		value := row.Cells[field.colType]
 
-		// Skip empty values for non-essential fields
 		if value == "" && field.colType != column.ColIsOrphan && field.colType != column.ColIsForeign {
 			continue
 		}
@@ -75,15 +69,12 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		}{label: field.label, value: value})
 	}
 
-	// Split fields into two columns
 	mid := (len(fields) + 1) / 2
 	leftFields := fields[:mid]
 	rightFields := fields[mid:]
 
-	// Calculate column width (half of available width, minus padding and gap)
 	colWidth := (width - 8) / 2
 
-	// Build left and right column content
 	var leftContent, rightContent strings.Builder
 
 	for _, f := range leftFields {
@@ -102,7 +93,6 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 		rightContent.WriteString(line)
 	}
 
-	// Style columns with max width to prevent overflow
 	leftStyle := lipgloss.NewStyle().
 		Width(colWidth).
 		MaxWidth(colWidth)
@@ -113,15 +103,12 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 	leftCol := leftStyle.Render(leftContent.String())
 	rightCol := rightStyle.Render(rightContent.String())
 
-	// Join columns horizontally
 	content := lipgloss.JoinHorizontal(lipgloss.Top, leftCol, rightCol)
 
-	// Add install commands at the bottom if in remote mode
 	if isRemote {
 		content = content + "\n\n" + renderInstallCommands(pkg.Name)
 	}
 
-	// Render as overlay above status bar
 	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.Current.Accent1).
@@ -131,8 +118,6 @@ func RenderDetailPanel(pkg *domain.Package, columns []*column.Column, colWidths 
 	return panelStyle.Render(content)
 }
 
-
-// renderInstallCommands renders the install command options using remote colors.
 func renderInstallCommands(pkgName string) string {
 	commandStyle := lipgloss.NewStyle().
 		Foreground(styles.Current.Background).
